@@ -163,12 +163,14 @@ if (Test-CommandExists "docker-compose") {
 
 Write-Host ""
 
-# 步骤 2: 获取仓库信息
-Write-Step -Current 2 -Total 5 -Message "配置仓库信息"
+# 步骤 2: 配置安装目录
+Write-Step -Current 2 -Total 5 -Message "配置安装目录"
 Write-Host ""
 
-$repoUrl = Read-UserInput -Prompt "请输入 GitHub 仓库地址" -DefaultValue $DEFAULT_REPO -Required $true
-$branch = Read-UserInput -Prompt "请输入分支名称" -DefaultValue $DEFAULT_BRANCH -Required $false
+Write-ColorOutput "将从仓库克隆代码: $DEFAULT_REPO" "Cyan"
+Write-ColorOutput "使用分支: $DEFAULT_BRANCH" "Cyan"
+Write-Host ""
+
 $installDir = Read-UserInput -Prompt "请输入安装目录名称" -DefaultValue $DEFAULT_INSTALL_DIR -Required $false
 
 Write-Host ""
@@ -191,9 +193,9 @@ if (Test-Path $installDir) {
 Write-Step -Current 3 -Total 5 -Message "克隆项目代码"
 Write-Host ""
 
-Write-ColorOutput "正在从 $repoUrl 克隆代码..." "Cyan"
+Write-ColorOutput "正在从 $DEFAULT_REPO 克隆代码..." "Cyan"
 try {
-    git clone -b $branch $repoUrl $installDir 2>&1 | Out-Null
+    git clone -b $DEFAULT_BRANCH $DEFAULT_REPO $installDir 2>&1 | Out-Null
     Write-ColorOutput "✓ 代码克隆成功" "Green"
 } catch {
     Write-ColorOutput "✗ 克隆失败: $($_.Exception.Message)" "Red"

@@ -44,7 +44,7 @@ irm https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/install.ps1 | iex
 
 交互式安装脚本会：
 1. ✅ 检查系统依赖（Git, Docker, Docker Compose）
-2. ✅ 提示输入仓库地址（可直接回车使用默认值）
+2. ✅ 自动从默认仓库克隆代码
 3. ✅ 交互式输入 Azure Speech Service 配置
 4. ✅ 验证密钥连接
 5. ✅ 自动启动服务

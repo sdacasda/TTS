@@ -150,12 +150,14 @@ fi
 
 echo ""
 
-# 步骤 2: 获取仓库信息
-print_step 2 5 "配置仓库信息"
+# 步骤 2: 配置安装目录
+print_step 2 5 "配置安装目录"
 echo ""
 
-repo_url=$(read_input "请输入 GitHub 仓库地址" "$DEFAULT_REPO" "true")
-branch=$(read_input "请输入分支名称" "$DEFAULT_BRANCH" "false")
+print_info "将从仓库克隆代码: $DEFAULT_REPO"
+print_info "使用分支: $DEFAULT_BRANCH"
+echo ""
+
 install_dir=$(read_input "请输入安装目录名称" "$DEFAULT_INSTALL_DIR" "false")
 
 echo ""
@@ -178,8 +180,8 @@ fi
 print_step 3 5 "克隆项目代码"
 echo ""
 
-print_info "正在从 $repo_url 克隆代码..."
-if git clone -b "$branch" "$repo_url" "$install_dir" 2>&1; then
+print_info "正在从 $DEFAULT_REPO 克隆代码..."
+if git clone -b "$DEFAULT_BRANCH" "$DEFAULT_REPO" "$install_dir" 2>&1; then
     print_success "✓ 代码克隆成功"
 else
     print_error "✗ 克隆失败"

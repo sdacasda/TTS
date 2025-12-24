@@ -39,7 +39,7 @@ def update_app() -> dict:
     try:
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
-            cwd="/app",
+            cwd="/repo",
             capture_output=True,
             text=True,
             timeout=30

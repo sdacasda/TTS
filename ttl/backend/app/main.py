@@ -30,7 +30,18 @@ def _startup() -> None:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True}
+    return {"ok": True, "version": "2025-12-25-v2"}
+
+
+@app.get("/api/debug/env")
+def debug_env() -> dict:
+    """Debug endpoint to check environment"""
+    import os
+    return {
+        "has_speech_key": bool(os.getenv("SPEECH_KEY")),
+        "speech_region": os.getenv("SPEECH_REGION"),
+        "key_length": len(os.getenv("SPEECH_KEY", "")),
+    }
 
 
 @app.post("/api/update")

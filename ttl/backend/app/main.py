@@ -90,6 +90,24 @@ def update_app() -> dict:
                 detail=f"Update failed: {result.stderr}"
             )
         
+        # Sync updated code from git repo to running directory
+        logger.info("Syncing updated code from /app/ttl/backend to /app")
+        sync_result = subprocess.run(
+            ["cp", "-r", "/app/ttl/backend/app", "/app/"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if sync_result.returncode != 0:
+            logger.error(f"Code sync failed: {sync_result.stderr}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Code sync failed: {sync_result.stderr}"
+            )
+        
+        logger.info("Code synced successfully, restarting application...")
+        
         import threading
         def restart():
             import time

@@ -217,8 +217,14 @@ while true; do
     esac
 done
 
-# 验证连接
 echo ""
+print_success "✓ 已选择区域: $speech_region"
+echo ""
+print_info "⏳ 正在配置服务..."
+echo ""
+
+# 验证连接
+print_info "📡 接下来可以验证密钥和区域是否配置正确"
 test_connection=$(read_input "是否验证连接? (y/n)" "y" "false")
 if [ "$test_connection" = "y" ] || [ "$test_connection" = "Y" ]; then
     if ! test_azure_connection "$speech_key" "$speech_region"; then
@@ -233,10 +239,12 @@ fi
 
 # 配额限制配置
 echo ""
+print_info "⚙️  配置使用配额限制"
 print_info "配额限制配置 (使用默认值)"
 stt_limit="18000"
 tts_limit="500000"
 pron_limit="18000"
+echo ""
 
 configure_limits=$(read_input "是否自定义配额限制? (y/n)" "n" "false")
 if [ "$configure_limits" = "y" ] || [ "$configure_limits" = "Y" ]; then
@@ -275,7 +283,10 @@ FREE_TTS_CHARS_LIMIT=${tts_limit}
 FREE_PRON_SECONDS_LIMIT=${pron_limit}
 EOF
 
-print_success "✓ 配置文件已生成"
+echo ""
+print_success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+print_success "✓ 配置完成！密钥和区域已保存到 .env 文件"
+print_success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
 # 步骤 2: 启动服务

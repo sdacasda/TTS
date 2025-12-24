@@ -225,8 +225,14 @@ while ($null -eq $speechRegion) {
     }
 }
 
-# 验证连接
 Write-Host ""
+Write-ColorOutput "✓ 已选择区域: $speechRegion" "Green"
+Write-Host ""
+Write-ColorOutput "⏳ 正在配置服务..." "Cyan"
+Write-Host ""
+
+# 验证连接
+Write-ColorOutput "📡 接下来可以验证密钥和区域是否配置正确" "Cyan"
 $testConnection = Read-UserInput -Prompt "是否验证连接? (y/n)" -DefaultValue "y" -Required $false
 if ($testConnection -eq "y" -or $testConnection -eq "Y") {
     $isValid = Test-AzureConnection -Key $speechKey -Region $speechRegion
@@ -242,10 +248,12 @@ if ($testConnection -eq "y" -or $testConnection -eq "Y") {
 
 # 配额限制配置
 Write-Host ""
+Write-ColorOutput "⚙️  配置使用配额限制" "Cyan"
 Write-ColorOutput "配额限制配置 (使用默认值)" "Cyan"
 $sttLimit = "18000"
 $ttsLimit = "500000"
 $pronLimit = "18000"
+Write-Host ""
 
 $configureLimits = Read-UserInput -Prompt "是否自定义配额限制? (y/n)" -DefaultValue "n" -Required $false
 if ($configureLimits -eq "y" -or $configureLimits -eq "Y") {
@@ -287,7 +295,10 @@ FREE_PRON_SECONDS_LIMIT=$pronLimit
 # 保存文件
 try {
     $envContent | Out-File -FilePath ".env" -Encoding UTF8 -NoNewline
-    Write-ColorOutput "✓ 配置文件已生成" "Green"
+    Write-Host ""
+    Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Green"
+    Write-ColorOutput "✓ 配置完成！密钥和区域已保存到 .env 文件" "Green"
+    Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Green"
 } catch {
     Write-ColorOutput "✗ 保存配置文件失败: $($_.Exception.Message)" "Red"
     exit 1

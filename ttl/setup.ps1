@@ -113,10 +113,7 @@ if (Test-Path $envPath) {
 
 Write-Header "步骤 1: Azure Speech Service 配置"
 
-Write-ColorOutput "请访问 Azure Portal 获取以下信息：" "Cyan"
-Write-ColorOutput "1. 登录: https://portal.azure.com" "White"
-Write-ColorOutput "2. 搜索并创建 'Speech Services' 资源" "White"
-Write-ColorOutput "3. 在'密钥和终结点'页面获取密钥和区域" "White"
+Write-ColorOutput "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)" "Cyan"
 Write-Host ""
 
 # 获取 SPEECH_KEY

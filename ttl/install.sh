@@ -200,10 +200,7 @@ echo ""
 print_step 4 5 "配置 Azure Speech Service"
 echo ""
 
-print_info "请访问 Azure Portal 获取以下信息："
-echo "1. 登录: https://portal.azure.com"
-echo "2. 搜索并创建 'Speech Services' 资源"
-echo "3. 在'密钥和终结点'页面获取密钥和区域"
+print_info "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)"
 echo ""
 
 # 获取 SPEECH_KEY

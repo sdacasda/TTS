@@ -47,10 +47,16 @@ class SpeechClient:
                 raise RuntimeError("Unexpected voices list response")
             return data
         except requests.exceptions.HTTPError as e:
-            error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
-            raise RuntimeError(f"Azure API error: {error_detail}")
+            # Ensure error message is ASCII-safe for HTTP headers
+            status_code = e.response.status_code
+            try:
+                error_text = e.response.text[:200].encode('ascii', 'replace').decode('ascii')
+            except:
+                error_text = "Error response contains non-ASCII characters"
+            raise RuntimeError(f"Azure API HTTP {status_code}: {error_text}")
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Network error: {str(e)}")
+            error_msg = str(e).encode('ascii', 'replace').decode('ascii')
+            raise RuntimeError(f"Network error: {error_msg}")
 
     def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
         headers = {

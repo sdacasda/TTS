@@ -46,7 +46,7 @@ def update_app() -> dict:
         if result.returncode != 0:
             raise HTTPException(
                 status_code=500,
-                detail=f"更新失败：{result.stderr}"
+                detail=f"Update failed: {result.stderr}"
             )
         
         # 延迟重启容器（让响应先返回）
@@ -60,13 +60,13 @@ def update_app() -> dict:
         
         return {
             "ok": True,
-            "message": "更新成功，服务将在2秒后重启",
+            "message": "Update successful, service will restart in 2 seconds",
             "output": result.stdout
         }
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="更新超时")
+        raise HTTPException(status_code=504, detail="Update timeout")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @app.get("/api/usage/summary")

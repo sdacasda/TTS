@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 import logging
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, Response, StreamingResponse, FileResponse
@@ -20,6 +21,7 @@ from pydantic import BaseModel
 from .speech import client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
 
+load_dotenv()
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -294,21 +296,31 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
         "audio-16khz-32kbitrate-mono-mp3"
     )
     
-    # Use voice from request directly (should be Azure voice name like "zh-CN-XiaoxiaoNeural")
-    voice = request.voice
+    # Map OpenAI voices to Azure voices
+    openai_voice_map = {
+        "alloy": "en-US-AvaNeural",
+        "echo": "en-US-AndrewNeural",
+        "fable": "en-GB-SoniaNeural",
+        "onyx": "en-US-BrianNeural",
+        "nova": "en-US-EmmaNeural",
+        "shimmer": "en-US-JennyNeural",
+    }
+    
+    # Use mapped voice if available, otherwise use the provided voice (assuming it's an Azure voice name)
+    voice = openai_voice_map.get(request.voice.lower(), request.voice)
     
     # Determine language from voice name
-    lang = "zh-CN"
-    if voice.startswith("en-"):
-        lang = "en-US"
-    elif voice.startswith("ja-"):
-        lang = "ja-JP"
-    elif voice.startswith("ko-"):
-        lang = "ko-KR"
-    elif "-" in voice:
-        lang = voice.split("-Neural")[0] if "Neural" in voice else voice.rsplit("-", 1)[0]
+    # Azure voice names are typically "Locale-VoiceNameNeural" (e.g. "en-US-JennyNeural")
+    # We extract the first two parts to get the locale (e.g. "en-US")
+    parts = voice.split("-")
+    if len(parts) >= 3: # e.g. en-US-JennyNeural
+        lang = f"{parts[0]}-{parts[1]}"
+    else:
+        # If we can't determine language from voice, default to en-US for OpenAI mapped voices,
+        # or zh-CN if it looks like a custom request that failed parsing
+        lang = "en-US" if request.voice.lower() in openai_voice_map else "zh-CN"
     
-    logger.info(f"OpenAI TTS: voice={voice}, speed={request.speed}, rate={rate}, format={request.response_format}")
+    logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}")
     
     try:
         c = client_from_env()

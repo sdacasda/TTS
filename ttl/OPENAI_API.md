@@ -32,7 +32,7 @@ Content-Type: application/json
 |------|------|------|------|
 | `model` | string | 是 | TTS 模型名称（任意字符串，内部映射到 Azure 语音） |
 | `input` | string | 是 | 要合成的文本内容 |
-| `voice` | string | 是 | Azure 语音名称（如 `zh-CN-XiaoxiaoNeural`） |
+| `voice` | string | 是 | Azure 语音名称（如 `zh-CN-XiaoxiaoNeural`）或 OpenAI 语音名称（如 `alloy`） |
 | `response_format` | string | 否 | 音频格式：`mp3`（默认）、`wav`、`opus`、`pcm` |
 | `speed` | float | 否 | 语速（0.25-4.0），默认 1.0 |
 | `gain` | float | 否 | 音量增益（dB），兼容参数，暂未使用 |
@@ -57,14 +57,23 @@ Body: <binary audio data>
 
 ## 支持的语音
 
-### 中文语音
+### OpenAI 兼容语音（自动映射）
+- `alloy` → `en-US-AvaNeural`
+- `echo` → `en-US-AndrewNeural`
+- `fable` → `en-GB-SoniaNeural`
+- `onyx` → `en-US-BrianNeural`
+- `nova` → `en-US-EmmaNeural`
+- `shimmer` → `en-US-JennyNeural`
+
+### Azure 原生语音（推荐）
+#### 中文语音
 - `zh-CN-XiaoxiaoNeural` - 晓晓（女声）
 - `zh-CN-YunxiNeural` - 云希（男声）
 - `zh-CN-YunjianNeural` - 云健（男声）
 - `zh-CN-XiaoyiNeural` - 晓伊（女声）
 - 更多语音请访问：http://your-server:8000/api/tts/voices
 
-### 英文语音
+#### 英文语音
 - `en-US-JennyNeural` - Jenny（女声）
 - `en-US-GuyNeural` - Guy（男声）
 - `en-US-AriaNeural` - Aria（女声）

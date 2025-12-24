@@ -32,7 +32,7 @@ def health() -> dict:
 
 @app.post("/api/update")
 def update_app() -> dict:
-    """在线更新应用代码"""
+    """Update application code online"""
     try:
         # 执行 git pull
         result = subprocess.run(

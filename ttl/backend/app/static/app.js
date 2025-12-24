@@ -14,9 +14,21 @@ async function refreshUsage() {
   const limit = Number(u?.limits?.tts_chars);
   if (Number.isFinite(limit) && limit > 0) state.ttsCharsLimit = limit;
   bar.innerHTML = `
-    <div><b>累计</b>：TTS ${fmt(u.all_time.tts_chars)} 字符 / STT ${fmt(u.all_time.stt_seconds)} 秒 / 发音 ${fmt(u.all_time.pron_seconds)} 秒</div>
-    <div><b>本月(${u.month_key})</b>：TTS ${fmt(u.month.tts_chars)} 字符 / STT ${fmt(u.month.stt_seconds)} 秒 / 发音 ${fmt(u.month.pron_seconds)} 秒</div>
-    <div><b>今日</b>：TTS ${fmt(u.today.tts_chars)} 字符 / STT ${fmt(u.today.stt_seconds)} 秒 / 发音 ${fmt(u.today.pron_seconds)} 秒</div>
+    <div class="metric">
+      <div class="label">累计</div>
+      <div class="value">TTS ${fmt(u.all_time.tts_chars)} 字符</div>
+      <div class="meta">STT ${fmt(u.all_time.stt_seconds)} 秒 · 发音 ${fmt(u.all_time.pron_seconds)} 秒</div>
+    </div>
+    <div class="metric">
+      <div class="label">本月（${u.month_key}）</div>
+      <div class="value">TTS ${fmt(u.month.tts_chars)} 字符</div>
+      <div class="meta">STT ${fmt(u.month.stt_seconds)} 秒 · 发音 ${fmt(u.month.pron_seconds)} 秒</div>
+    </div>
+    <div class="metric">
+      <div class="label">今日</div>
+      <div class="value">TTS ${fmt(u.today.tts_chars)} 字符</div>
+      <div class="meta">STT ${fmt(u.today.stt_seconds)} 秒 · 发音 ${fmt(u.today.pron_seconds)} 秒</div>
+    </div>
   `;
   updateCharCount();
 }

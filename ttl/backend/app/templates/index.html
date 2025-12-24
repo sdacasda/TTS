@@ -6,49 +6,154 @@
     <title>Azure 语音门户</title>
     <style>
       :root {
-        --border: #e7e5e4;
-        --muted: #78716c;
-        --bg: rgba(255, 255, 255, .88);
-        --panel: rgba(250, 250, 249, .92);
-        --brand: #16a34a;
-        --shadow: 0 1px 2px rgba(0,0,0,.05);
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: rgba(255, 255, 255, 0.92);
+        --panel: rgba(250, 250, 249, 0.95);
+        --brand: #0ea5e9;
+        --shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+        --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.05);
       }
-      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: radial-gradient(1200px 600px at 20% 0%, #ecfdf5 0%, rgba(236,253,245,0) 60%), radial-gradient(1000px 600px at 90% 10%, #fef3c7 0%, rgba(254,243,199,0) 55%), #f5f5f4; }
-      .wrap { padding: 12px; max-width: 1320px; margin: 0 auto; }
-      .bar { background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
-      .usage { display:flex; align-items:center; justify-content:space-between; gap: 12px; padding: 10px 12px; font-size: 13px; }
-      .usage .left { display:flex; gap: 14px; flex-wrap: wrap; }
-      .usage strong { font-weight: 700; }
-      .toolbar { display:flex; align-items:center; justify-content:flex-end; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
-      .toolbar .spacer { display:none; }
-      .layout { display:grid; grid-template-columns: 1fr 380px; gap: 12px; margin-top: 12px; }
-      .panel { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
-      .editorHead { display:flex; align-items:center; justify-content:space-between; padding: 10px 12px; border-bottom: 1px solid var(--border); background: #fff; }
-      .editorHead .muted { font-size: 12px; color: var(--muted); }
-      .editor { padding: 10px; background: #fff; }
-      textarea { width: 100%; height: calc(100vh - 270px); min-height: 420px; resize: none; border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-sizing: border-box; font-size: 14px; line-height: 1.55; }
-      .actions { display:flex; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--border); background: #fff; }
-      button { padding: 8px 12px; cursor: pointer; border-radius: 10px; border: 1px solid var(--border); background: #fff; transition: background .15s, border-color .15s, transform .05s; }
-      button:hover { background: #f9fafb; }
+      body {
+        font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial;
+        margin: 0;
+        background: radial-gradient(1200px 700px at 15% 0%, #e0f2fe 0%, rgba(224, 242, 254, 0) 60%),
+          radial-gradient(1100px 700px at 90% 5%, #fef9c3 0%, rgba(254, 249, 195, 0) 55%),
+          #f8fafc;
+        color: #0f172a;
+      }
+      .wrap { padding: 18px; max-width: 1340px; margin: 0 auto 28px; box-sizing: border-box; }
+      .bar {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow-soft);
+        padding: 14px;
+      }
+      .barHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .brand { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+      .sub { color: var(--muted); font-size: 13px; }
+      .quotaBox { text-align: right; min-width: 210px; }
+      .quotaVal { font-weight: 700; color: #0ea5e9; }
+      .usageGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .metric {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: var(--shadow-soft);
+      }
+      .metric .label { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; text-transform: uppercase; }
+      .metric .value { font-size: 17px; font-weight: 700; margin: 6px 0 4px; }
+      .metric .meta { font-size: 12px; color: var(--muted); }
+
+      .layout { display: grid; grid-template-columns: 1fr 380px; gap: 14px; margin-top: 14px; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panelHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+      }
+      .panelHead .eyebrow { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+      .panelHead .title { font-size: 17px; font-weight: 700; }
+      .editor { padding: 14px; background: #fff; }
+      textarea {
+        width: 100%;
+        height: calc(100vh - 320px);
+        min-height: 420px;
+        resize: none;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        box-sizing: border-box;
+        font-size: 14px;
+        line-height: 1.6;
+        background: #f8fafc;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        border-top: 1px solid var(--border);
+        background: #fff;
+        align-items: stretch;
+      }
+      button {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      button:hover { background: #f8fafc; box-shadow: var(--shadow-soft); }
       button:active { transform: translateY(1px); }
-      button:disabled { opacity: .6; cursor: not-allowed; }
-      button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-      button.primary:hover { background: #15803d; border-color: #15803d; }
-      button.danger { background: #ef4444; border-color: #ef4444; color: #fff; }
+      button:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+      button.primary { background: linear-gradient(120deg, #22d3ee, #0ea5e9); border-color: #0ea5e9; color: #fff; }
+      button.primary:hover { background: linear-gradient(120deg, #06b6d4, #0284c7); border-color: #0284c7; }
+      button.danger { background: #ef4444; border-color: #ef4444; color: #fff; box-shadow: none; }
       button.danger:hover { background: #dc2626; border-color: #dc2626; }
-      .pill { display:flex; align-items:center; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-      .switch { display:inline-flex; align-items:center; gap: 6px; user-select:none; }
+      button.ghost { background: #f8fafc; }
+      .pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+      }
+      .pill.slim { padding: 6px 10px; }
+      .switch { display: inline-flex; align-items: center; gap: 8px; user-select: none; font-size: 13px; }
       .switch input { width: 16px; height: 16px; }
 
-      .toolbox { display:flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
-      .toolbox .switch { padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+      .toolbox { display: grid; gap: 8px; margin: 4px 0 6px; }
+      .toolbox .rowline { display: flex; flex-wrap: wrap; gap: 8px; }
+      .toolbox .switch { border: 1px solid var(--border); padding: 8px 10px; border-radius: 10px; background: #fff; }
       .right { background: var(--panel); }
-      .right .section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-      .right .title { font-weight: 700; font-size: 13px; margin-bottom: 10px; }
-      .row { display:grid; grid-template-columns: 78px 1fr; gap: 10px; align-items:center; margin-bottom: 10px; }
-      .row label { font-size: 12px; color:#374151; }
-      input, select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; background: #fff; }
-      input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(22, 163, 74, .55); box-shadow: 0 0 0 4px rgba(22, 163, 74, .12); }
+      .right .section { padding: 14px; border-bottom: 1px solid var(--border); background: #fff; }
+      .right .sectionHead { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+      .right .title { font-weight: 700; font-size: 14px; }
+      .right .subtitle { color: var(--muted); font-size: 12px; }
+      .row { display:grid; grid-template-columns: 86px 1fr; gap: 10px; align-items:center; margin-bottom: 12px; }
+      .row label { font-size: 12px; color:#374151; font-weight: 600; }
+      input, select {
+        width: 100%;
+        padding: 9px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-sizing: border-box;
+        background: #fff;
+        font-size: 13px;
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: rgba(14, 165, 233, 0.8);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+      }
       input[type=range] { width: 100%; }
       .inline { display:flex; gap: 8px; }
       .inline > * { flex: 1; }
@@ -57,39 +162,62 @@
       .muted { color: var(--muted); font-size: 12px; }
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
       dialog { border: 1px solid var(--border); border-radius: 12px; padding: 0; box-shadow: 0 10px 25px rgba(0,0,0,.15); }
-      dialog .dlg { width: min(560px, 94vw); background: #fff; }
+      dialog .dlg { width: min(560px, 94vw); background: #fff; border-radius: 12px; overflow: hidden; }
       dialog .dlgHead { padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); }
       dialog .dlgBody { padding: 12px; }
       dialog .dlgFoot { padding: 12px; border-top: 1px solid var(--border); display:flex; justify-content:flex-end; gap: 8px; }
 
-      details { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+      details { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
       details summary { cursor: pointer; font-weight: 700; font-size: 12px; color:#111827; }
       details[open] summary { margin-bottom: 10px; }
 
-      @media (max-width: 980px) {
+      @media (max-width: 1080px) {
         .layout { grid-template-columns: 1fr; }
-        textarea { height: 46vh; min-height: 260px; }
+        textarea { height: 46vh; min-height: 280px; }
       }
     </style>
   </head>
   <body>
     <div class="wrap">
       <div class="bar">
-        <div class="usage" id="topbar">
-          <div class="left" id="usageBar">
-            <div><strong>累计</strong>：TTS 0 字符 / STT 0 秒 / 发音 0 秒</div>
-            <div><strong>本月</strong>：TTS 0 字符 / STT 0 秒 / 发音 0 秒</div>
-            <div><strong>今日</strong>：TTS 0 字符 / STT 0 秒 / 发音 0 秒</div>
+        <div class="barHead">
+          <div>
+            <div class="brand">Azure 语音门户</div>
+            <div class="sub">统一管理语音合成、识别与发音评测</div>
           </div>
-          <div class="muted" id="quotaHint">字数：0/500000</div>
+          <div class="quotaBox">
+            <div class="muted">配额提示</div>
+            <div class="quotaVal" id="quotaHint">字数：0/500000</div>
+          </div>
+        </div>
+        <div class="usageGrid" id="usageBar">
+          <div class="metric">
+            <div class="label">累计</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
+          <div class="metric">
+            <div class="label">本月</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
+          <div class="metric">
+            <div class="label">今日</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
         </div>
       </div>
 
       <div class="layout">
         <div class="panel">
           <div class="editorHead">
-            <div class="muted">一次生成一条语音：改完文本后再次点击生成即可</div>
-            <div class="muted" id="charCount">0 字符</div>
+            <div>
+              <div class="eyebrow">文本输入</div>
+              <div class="title">准备要合成的文案</div>
+              <div class="muted">一次生成一条语音，改完文本再点击「生成」即可</div>
+            </div>
+            <div class="pill slim muted" id="charCount">0 字符</div>
           </div>
           <div class="editor">
             <textarea id="ttsText">你好，我是 Azure Speech。</textarea>
@@ -107,16 +235,25 @@
 
         <div class="panel right">
           <div class="section">
-            <div class="title">参数</div>
+            <div class="sectionHead">
+              <div>
+                <div class="title">快捷操作</div>
+                <div class="subtitle">常用文本处理与偏好设置</div>
+              </div>
+              <button id="refreshUsage" class="ghost">刷新用量</button>
+            </div>
 
             <div class="toolbox">
-              <button id="btnFormat">整理</button>
-              <button id="btnReplace">替换</button>
-              <button class="danger" id="btnClear">清除</button>
-              <label class="switch"><input type="checkbox" id="toggleBeep" /> 关闭提示音</label>
-              <label class="switch"><input type="checkbox" id="toggleAutoDownload" /> 开启自动下载</label>
-              <button id="btnGenSrt">生成字幕（SRT）</button>
-              <button id="refreshUsage">刷新用量</button>
+              <div class="rowline">
+                <button id="btnFormat">整理</button>
+                <button id="btnReplace">替换</button>
+                <button class="danger" id="btnClear">清除</button>
+                <button id="btnGenSrt">生成字幕（SRT）</button>
+              </div>
+              <div class="rowline">
+                <label class="switch"><input type="checkbox" id="toggleBeep" /> 关闭提示音</label>
+                <label class="switch"><input type="checkbox" id="toggleAutoDownload" /> 开启自动下载</label>
+              </div>
             </div>
 
             <div class="row">

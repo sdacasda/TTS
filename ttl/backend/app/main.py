@@ -2,35 +2,42 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
+import time
+from pathlib import Path
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import Optional
+import logging
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from pydantic import BaseModel
-from typing import Optional
-import logging
 
 from .speech import client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
 
 logger = logging.getLogger("uvicorn.error")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
 app = FastAPI(
     docs_url=None,
-    redoc_url=None
+    redoc_url=None,
+    lifespan=lifespan
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    init_db()
 
 
 @app.get("/api/health")
@@ -41,7 +48,6 @@ def health() -> dict:
 @app.get("/api/debug/env")
 def debug_env() -> dict:
     """Debug endpoint to check environment"""
-    import os
     return {
         "has_speech_key": bool(os.getenv("SPEECH_KEY")),
         "speech_region": os.getenv("SPEECH_REGION"),
@@ -52,33 +58,31 @@ def debug_env() -> dict:
 @app.post("/api/update")
 def update_app() -> dict:
     """Update application code online"""
-    import logging
-    logger = logging.getLogger("uvicorn.error")
-    
     try:
-        # Use /app as the git repository directory
-        git_dir = "/app"
+        # Find git repository root
+        current_path = Path(__file__).resolve()
+        git_dir = None
         
-        # Check if git directory exists
-        if not os.path.exists(git_dir):
-            logger.error(f"Update failed: {git_dir} directory does not exist")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Update failed: {git_dir} directory not found."
-            )
+        for parent in current_path.parents:
+            if (parent / ".git").exists():
+                git_dir = parent
+                break
         
-        # Check if it's a git repository
-        if not os.path.exists(os.path.join(git_dir, ".git")):
-            logger.error(f"Update failed: {git_dir} is not a git repository")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Update failed: {git_dir} is not a git repository."
-            )
+        if not git_dir:
+            # Fallback to /repo if not found (Docker default)
+            if Path("/repo/.git").exists():
+                git_dir = Path("/repo")
+            else:
+                logger.error("Update failed: Could not find .git directory")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Update failed: Could not find git repository root."
+                )
         
         logger.info(f"Starting git pull in {git_dir}")
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
-            cwd=git_dir,
+            cwd=str(git_dir),
             capture_output=True,
             text=True,
             timeout=30
@@ -95,28 +99,11 @@ def update_app() -> dict:
                 detail=f"Update failed: {result.stderr}"
             )
         
-        # Sync updated code from git repo to running directory
-        logger.info("Syncing updated code from /app/ttl/backend to /app")
-        sync_result = subprocess.run(
-            ["cp", "-r", "/app/ttl/backend/app", "/app/"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        logger.info("Code updated successfully, restarting application...")
         
-        if sync_result.returncode != 0:
-            logger.error(f"Code sync failed: {sync_result.stderr}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Code sync failed: {sync_result.stderr}"
-            )
-        
-        logger.info("Code synced successfully, restarting application...")
-        
-        import threading
         def restart():
-            import time
             time.sleep(2)
+            # In Docker, PID 1 is usually the entrypoint
             os.system("kill -TERM 1")
         
         threading.Thread(target=restart, daemon=True).start()
@@ -133,26 +120,23 @@ def update_app() -> dict:
 
 
 @app.get("/api/usage/summary")
-def usage_summary(month: str | None = None) -> dict:
+async def usage_summary(month: str | None = None) -> dict:
     if not month:
         month = month_key(datetime.now(timezone.utc))
-    return get_usage_summary(month)
+    return await get_usage_summary(month)
 
 
 @app.get("/api/usage/overview")
-def usage_overview() -> dict:
-    return get_usage_overview()
+async def usage_overview() -> dict:
+    return await get_usage_overview()
 
 
 @app.get("/api/tts/voices")
-def tts_voices(locale: str | None = None, neural_only: bool = True) -> dict:
-    import logging
-    logger = logging.getLogger("uvicorn.error")
-    
+async def tts_voices(locale: str | None = None, neural_only: bool = True) -> dict:
     try:
         c = client_from_env()
         logger.info(f"Fetching voices from Azure, region: {c.region}")
-        voices = c.list_voices()
+        voices = await c.list_voices()
         logger.info(f"Successfully fetched {len(voices)} voices")
     except Exception as e:
         error_msg = f"Failed to fetch voices: {type(e).__name__}: {str(e)}"
@@ -183,12 +167,12 @@ async def stt_recognize(
     wav_bytes = await audio.read()
     try:
         c = client_from_env()
-        result = c.speech_to_text(wav_bytes=wav_bytes, language=language)
+        result = await c.speech_to_text(wav_bytes=wav_bytes, language=language)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
     if seconds > 0:
-        record_usage("stt_seconds", seconds)
+        await record_usage("stt_seconds", seconds)
 
     return result
 
@@ -205,7 +189,7 @@ async def pronunciation_assess(
     wav_bytes = await audio.read()
     try:
         c = client_from_env()
-        result = c.pronunciation_assessment(
+        result = await c.pronunciation_assessment(
             wav_bytes=wav_bytes,
             language=language,
             reference_text=reference_text,
@@ -214,7 +198,7 @@ async def pronunciation_assess(
         raise HTTPException(status_code=502, detail=str(e))
 
     if seconds > 0:
-        record_usage("pron_seconds", seconds)
+        await record_usage("pron_seconds", seconds)
 
     return result
 
@@ -238,7 +222,7 @@ async def tts_synthesize(
 
     try:
         c = client_from_env()
-        audio_bytes = c.text_to_speech(
+        audio_bytes = await c.text_to_speech(
             text=text,
             voice=voice,
             output_format=output_format,
@@ -254,7 +238,7 @@ async def tts_synthesize(
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    record_usage("tts_chars", len(text))
+    await record_usage("tts_chars", len(text))
     return Response(content=audio_bytes, media_type="audio/mpeg")
 
 
@@ -328,7 +312,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
     
     try:
         c = client_from_env()
-        audio_bytes = c.text_to_speech(
+        audio_bytes = await c.text_to_speech(
             text=request.input,
             voice=voice,
             output_format=output_format,
@@ -346,7 +330,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
         raise HTTPException(status_code=502, detail=f"Speech synthesis failed: {str(e)}")
     
     # Record usage
-    record_usage("tts_chars", len(request.input))
+    await record_usage("tts_chars", len(request.input))
     
     # Determine media type
     media_type_mapping = {
@@ -369,8 +353,6 @@ def index(request: Request) -> HTMLResponse:
 
 @app.get("/favicon.ico")
 def favicon():
-    from fastapi.responses import FileResponse
-    import os
     favicon_path = os.path.join("app", "static", "favicon.ico")
     if os.path.exists(favicon_path):
         return FileResponse(favicon_path)

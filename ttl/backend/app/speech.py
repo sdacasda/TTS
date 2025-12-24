@@ -6,7 +6,7 @@ import os
 import re
 from typing import Any
 
-import requests
+import httpx
 
 
 class SpeechClient:
@@ -36,17 +36,18 @@ class SpeechClient:
             headers["api-key"] = self.openai_tts_api_key
         return headers
 
-    def list_voices(self) -> list[dict[str, Any]]:
+    async def list_voices(self) -> list[dict[str, Any]]:
         headers = self._tts_headers()
         headers["Accept"] = "application/json"
         try:
-            r = requests.get(self._tts_voices_url(), headers=headers, timeout=60)
-            r.raise_for_status()
-            data = r.json()
+            async with httpx.AsyncClient() as client:
+                r = await client.get(self._tts_voices_url(), headers=headers, timeout=60)
+                r.raise_for_status()
+                data = r.json()
             if not isinstance(data, list):
                 raise RuntimeError("Unexpected voices list response")
             return data
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             # Ensure error message is ASCII-safe for HTTP headers
             status_code = e.response.status_code
             try:
@@ -54,21 +55,22 @@ class SpeechClient:
             except:
                 error_text = "Error response contains non-ASCII characters"
             raise RuntimeError(f"Azure API HTTP {status_code}: {error_text}")
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             error_msg = str(e).encode('ascii', 'replace').decode('ascii')
             raise RuntimeError(f"Network error: {error_msg}")
 
-    def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
+    async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
         headers = {
             "Ocp-Apim-Subscription-Key": self.key,
             "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
             "Accept": "application/json",
         }
-        r = requests.post(self._stt_url(language), headers=headers, data=wav_bytes, timeout=60)
-        r.raise_for_status()
-        return r.json()
+        async with httpx.AsyncClient() as client:
+            r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
+            r.raise_for_status()
+            return r.json()
 
-    def pronunciation_assessment(
+    async def pronunciation_assessment(
         self,
         wav_bytes: bytes,
         language: str,
@@ -91,11 +93,12 @@ class SpeechClient:
             "Accept": "application/json",
             "Pronunciation-Assessment": pa_b64,
         }
-        r = requests.post(self._stt_url(language), headers=headers, data=wav_bytes, timeout=60)
-        r.raise_for_status()
-        return r.json()
+        async with httpx.AsyncClient() as client:
+            r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
+            r.raise_for_status()
+            return r.json()
 
-    def text_to_speech(
+    async def text_to_speech(
         self,
         text: str,
         voice: str,
@@ -126,9 +129,10 @@ class SpeechClient:
         headers = self._tts_headers()
         headers["Content-Type"] = "application/ssml+xml"
         headers["X-Microsoft-OutputFormat"] = output_format
-        r = requests.post(self._tts_url(), headers=headers, data=ssml.encode("utf-8"), timeout=60)
-        r.raise_for_status()
-        return r.content
+        async with httpx.AsyncClient() as client:
+            r = await client.post(self._tts_url(), headers=headers, content=ssml.encode("utf-8"), timeout=60)
+            r.raise_for_status()
+            return r.content
 
 
 def _escape_xml(s: str) -> str:

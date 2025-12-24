@@ -1,6 +1,16 @@
 async function fetchJson(url) {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    let msg = await r.text();
+    try {
+      const errObj = JSON.parse(msg);
+      if (errObj.detail) msg = errObj.detail;
+    } catch (_) {
+      // If parsing fails, use the status text or a default message if the body is empty
+      if (!msg.trim()) msg = `Request failed: ${r.status} ${r.statusText}`;
+    }
+    throw new Error(msg);
+  }
   return await r.json();
 }
 
@@ -598,6 +608,12 @@ function setCurrentItem(it) {
   const btnSrt = document.getElementById('btnDownloadSrt');
   if (btnDown) btnDown.disabled = !it;
   if (btnSrt) btnSrt.disabled = !it;
+
+  const btnGen = document.getElementById('btnGenSrt');
+  if (btnGen) {
+    btnGen.disabled = false;
+    btnGen.textContent = '生成字幕（SRT）';
+  }
 }
 
 async function runSingleSynthesis() {
@@ -723,8 +739,15 @@ document.getElementById('btnReplaceApply').addEventListener('click', () => {
   dlg.close();
 });
 
-refreshUsage().catch(() => {});
-initLanguagesAndVoices().catch(e => alert(`初始化失败：${e.message}`));
+(async function init() {
+  try {
+    await refreshUsage();
+    await initLanguagesAndVoices();
+  } catch (e) {
+    console.error('Initialization failed:', e);
+    alert(`应用初始化失败：${e.message}`);
+  }
+})();
 
 document.getElementById('btnGenSrt').addEventListener('click', () => {
   const btn = document.getElementById('btnGenSrt');
@@ -741,6 +764,10 @@ document.getElementById('btnGenSrt').addEventListener('click', () => {
     })
     .then(() => {
       btn.textContent = '字幕已下载';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }, 2000);
     })
     .catch(e => {
       btn.disabled = false;

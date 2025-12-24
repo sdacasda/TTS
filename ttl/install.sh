@@ -333,7 +333,6 @@ echo ""
         echo "  4. 手动启动: cd $(pwd) && $COMPOSE_CMD up --build"
         exit 1
     fi
-fi
 
 # 显示安装摘要
 echo ""
@@ -347,32 +346,30 @@ echo "  • 密钥: ${speech_key:0:8}..."
 echo "  • 区域: ${speech_region}"
 echo ""
 
-if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
-    print_info "服务访问地址："
-    echo "  • 本地: http://localhost:8000"
-    
-    # 尝试获取服务器 IP
-    if command -v hostname &> /dev/null; then
-        server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-        if [ -n "$server_ip" ]; then
-            echo "  • 服务器: http://${server_ip}:8000"
-        fi
-    fi
-    echo ""
-    
-    print_header "🚀 如何使用"
-    print_success "请在浏览器中打开以下地址："
-    echo ""
-    print_warning "  ➡️  http://localhost:8000"
-    echo ""
+print_info "服务访问地址："
+echo "  • 本地: http://localhost:8000"
+
+# 尝试获取服务器 IP
+if command -v hostname &> /dev/null; then
+    server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
     if [ -n "$server_ip" ]; then
-        print_info "或者使用服务器 IP 访问："
-        print_warning "  ➡️  http://${server_ip}:8000"
-        echo ""
+        echo "  • 服务器: http://${server_ip}:8000"
     fi
-    print_success "打开后即可使用语音转文字、文字转语音等功能！"
+fi
+echo ""
+
+print_header "🚀 如何使用"
+print_success "请在浏览器中打开以下地址："
+echo ""
+print_warning "  ➡️  http://localhost:8000"
+echo ""
+if [ -n "$server_ip" ]; then
+    print_info "或者使用服务器 IP 访问："
+    print_warning "  ➡️  http://${server_ip}:8000"
     echo ""
 fi
+print_success "打开后即可使用语音转文字、文字转语音等功能！"
+echo ""
 
 print_info "常用命令："
 echo "  • 查看日志: $COMPOSE_CMD logs -f"

@@ -76,6 +76,17 @@
       }
       .panelHead .eyebrow { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
       .panelHead .title { font-size: 17px; font-weight: 700; }
+      .editorHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+        gap: 12px;
+      }
+      .editorHead .eyebrow { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+      .editorHead .title { font-size: 17px; font-weight: 700; }
       .editor { padding: 14px; background: #fff; }
       textarea {
         width: 100%;
@@ -89,6 +100,8 @@
         font-size: 14px;
         line-height: 1.6;
         background: #f8fafc;
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
       }
       .actions {
         display: flex;
@@ -108,6 +121,8 @@
         transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
         font-weight: 600;
         color: #0f172a;
+        -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        touch-action: manipulation; /* 优化触摸响应 */
       }
       button:hover { background: #f8fafc; box-shadow: var(--shadow-soft); }
       button:active { transform: translateY(1px); }
@@ -148,6 +163,8 @@
         box-sizing: border-box;
         background: #fff;
         font-size: 13px;
+        -webkit-appearance: none; /* 移除 iOS 默认样式 */
+        -webkit-tap-highlight-color: transparent;
       }
       input:focus, select:focus, textarea:focus {
         outline: none;
@@ -171,9 +188,194 @@
       details summary { cursor: pointer; font-weight: 700; font-size: 12px; color:#111827; }
       details[open] summary { margin-bottom: 10px; }
 
+      /* 平板适配 */
       @media (max-width: 1080px) {
         .layout { grid-template-columns: 1fr; }
         textarea { height: 46vh; min-height: 280px; }
+      }
+
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        .wrap { padding: 12px; }
+        .brand { font-size: 16px; }
+        .sub { font-size: 12px; }
+        
+        /* 配额显示优化 */
+        .barHead { flex-direction: column; align-items: stretch; }
+        .quotaBox { text-align: left; margin-top: 8px; min-width: auto; }
+        
+        /* 使用统计卡片 */
+        .usageGrid { grid-template-columns: 1fr; gap: 8px; }
+        .metric { padding: 10px; }
+        .metric .label { font-size: 11px; }
+        .metric .value { font-size: 15px; }
+        .metric .meta { font-size: 11px; }
+        
+        /* 编辑器区域 */
+        textarea { 
+          height: 35vh; 
+          min-height: 200px;
+          font-size: 16px; /* 防止 iOS 自动缩放 */
+          padding: 12px;
+        }
+        
+        /* 按钮组优化 */
+        .actions { 
+          flex-direction: column; 
+          gap: 8px; 
+          padding: 12px;
+        }
+        .actions button { 
+          width: 100%; 
+          padding: 12px; 
+          font-size: 15px;
+          min-height: 44px; /* 触摸友好尺寸 */
+        }
+        .actions .pill { 
+          width: 100%; 
+          padding: 12px;
+        }
+        
+        /* 表单控件 */
+        .row { 
+          grid-template-columns: 1fr; 
+          gap: 6px; 
+          margin-bottom: 14px;
+        }
+        .row label { 
+          font-size: 13px; 
+          margin-bottom: 4px;
+        }
+        .inline { 
+          flex-direction: column;
+        }
+        .inline button {
+          width: 100%;
+        }
+        input, select { 
+          padding: 12px; 
+          font-size: 16px; /* 防止 iOS 自动缩放 */
+          min-height: 44px;
+        }
+        button { 
+          padding: 12px 14px; 
+          font-size: 15px;
+          min-height: 44px;
+        }
+        
+        /* 工具栏 */
+        .toolbox .rowline { 
+          flex-direction: column; 
+        }
+        .toolbox .switch { 
+          padding: 12px; 
+          font-size: 14px;
+          min-height: 44px;
+        }
+        .toolbox button {
+          width: 100%;
+        }
+        
+        /* 滑块控件 */
+        .slider .val { 
+          width: 70px; 
+          font-size: 13px;
+        }
+        
+        /* 右侧面板 */
+        .right .section { padding: 12px; }
+        .right .title { font-size: 15px; }
+        .right .subtitle { font-size: 11px; }
+        
+        /* 提示文字 */
+        .muted { 
+          font-size: 11px; 
+          line-height: 1.5;
+        }
+        
+        /* 字符计数 */
+        .pill.slim { padding: 8px 12px; }
+        #charCount { font-size: 13px; }
+        
+        /* 面板头部 */
+        .panelHead { 
+          padding: 12px; 
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .panelHead .title { font-size: 16px; }
+        .panelHead .eyebrow { font-size: 10px; }
+        
+        .editorHead {
+          padding: 12px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+        .editorHead .title { font-size: 16px; }
+        .editorHead .eyebrow { font-size: 10px; }
+        .editorHead .pill { 
+          align-self: flex-start;
+        }
+        
+        /* 对话框 */
+        dialog .dlg { 
+          width: calc(100vw - 24px); 
+          max-width: 500px;
+        }
+        dialog .dlgHead { font-size: 16px; }
+        
+        /* 折叠面板 */
+        details { padding: 10px; }
+        details summary { font-size: 13px; }
+      }
+
+      /* 小屏手机优化 */
+      @media (max-width: 480px) {
+        .brand { font-size: 15px; }
+        .sub { font-size: 11px; }
+        .bar { padding: 10px; }
+        .panel { border-radius: 12px; }
+        
+        textarea { 
+          height: 30vh; 
+          min-height: 180px;
+        }
+        
+        /* 音频播放器 */
+        #ttsAudio { 
+          width: 100%; 
+          height: 40px;
+        }
+      }
+
+      /* 移动端横屏优化 */
+      @media (max-width: 920px) and (orientation: landscape) {
+        textarea {
+          height: 25vh;
+          min-height: 150px;
+        }
+        .bar { 
+          margin-bottom: 10px;
+        }
+        .usageGrid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      /* 滚动优化 */
+      * {
+        -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+      }
+      
+      /* 优化移动端选择框 */
+      @media (max-width: 768px) {
+        select {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 36px;
+        }
       }
     </style>
   </head>

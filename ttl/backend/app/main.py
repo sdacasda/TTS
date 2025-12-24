@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -26,6 +28,45 @@ def _startup() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True}
+
+
+@app.post("/api/update")
+def update_app() -> dict:
+    """在线更新应用代码"""
+    try:
+        # 执行 git pull
+        result = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd="/app",
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"更新失败：{result.stderr}"
+            )
+        
+        # 延迟重启容器（让响应先返回）
+        import threading
+        def restart():
+            import time
+            time.sleep(2)
+            os.system("kill -TERM 1")  # 发送SIGTERM信号给PID 1（通常是主进程）
+        
+        threading.Thread(target=restart, daemon=True).start()
+        
+        return {
+            "ok": True,
+            "message": "更新成功，服务将在2秒后重启",
+            "output": result.stdout
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="更新超时")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")
 
 
 @app.get("/api/usage/summary")

@@ -37,6 +37,34 @@ document.getElementById('refreshUsage').addEventListener('click', () => {
   refreshUsage().catch(e => alert(`刷新失败：${e.message}`));
 });
 
+document.getElementById('updateApp').addEventListener('click', async () => {
+  if (!confirm('确定要更新应用吗？更新后服务将自动重启，大约需要10秒。')) return;
+  
+  const btn = document.getElementById('updateApp');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ 更新中...';
+  
+  try {
+    const r = await fetch('/api/update', { method: 'POST' });
+    if (!r.ok) {
+      const err = await r.text();
+      throw new Error(err);
+    }
+    const data = await r.json();
+    alert(data.message || '更新成功！页面将在5秒后自动刷新。');
+    
+    // 等待服务重启后刷新页面
+    setTimeout(() => {
+      window.location.reload();
+    }, 5000);
+  } catch (e) {
+    alert(`更新失败：${e.message}`);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
 const state = {
   voices: [],
   voicesByLocale: new Map(),

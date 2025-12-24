@@ -143,11 +143,42 @@ speech_key=$(read_input "请输入 Azure Speech Service 密钥 (KEY1 或 KEY2)" 
 
 # 获取 SPEECH_REGION
 echo ""
-print_info "常用区域代码："
-echo -e "${GRAY}  eastasia (东亚)     westus (美国西部)    eastus (美国东部)${NC}"
-echo -e "${GRAY}  westeurope (西欧)   southeastasia (东南亚)  japaneast (日本东部)${NC}"
+print_info "请选择 Azure Speech Service 区域："
 echo ""
-speech_region=$(read_input "请输入 Azure Speech Service 区域" "" "true")
+echo "  1) eastasia          - 东亚（香港）"
+echo "  2) southeastasia     - 东南亚（新加坡）"
+echo "  3) eastus            - 美国东部"
+echo "  4) westus            - 美国西部"
+echo "  5) westeurope        - 西欧（荷兰）"
+echo "  6) northeurope       - 北欧（爱尔兰）"
+echo "  7) japaneast         - 日本东部（东京）"
+echo "  8) koreacentral      - 韩国中部（首尔）"
+echo "  9) australiaeast     - 澳大利亚东部（悉尼）"
+echo "  0) 手动输入其他区域"
+echo ""
+
+while true; do
+    echo -ne "${YELLOW}请选择区域 (1-9 或 0): ${NC}"
+    read region_choice
+    
+    case $region_choice in
+        1) speech_region="eastasia"; break;;
+        2) speech_region="southeastasia"; break;;
+        3) speech_region="eastus"; break;;
+        4) speech_region="westus"; break;;
+        5) speech_region="westeurope"; break;;
+        6) speech_region="northeurope"; break;;
+        7) speech_region="japaneast"; break;;
+        8) speech_region="koreacentral"; break;;
+        9) speech_region="australiaeast"; break;;
+        0) 
+            speech_region=$(read_input "请输入区域代码" "" "true")
+            break;;
+        *)
+            print_error "无效选择，请输入 0-9"
+            continue;;
+    esac
+done
 
 # 验证连接
 echo ""

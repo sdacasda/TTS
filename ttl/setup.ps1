@@ -124,11 +124,45 @@ $speechKey = Read-UserInput -Prompt "请输入 Azure Speech Service 密钥 (KEY1
 
 # 获取 SPEECH_REGION
 Write-Host ""
-Write-ColorOutput "常用区域代码：" "Cyan"
-Write-ColorOutput "  eastasia (东亚)     westus (美国西部)    eastus (美国东部)" "Gray"
-Write-ColorOutput "  westeurope (西欧)   southeastasia (东南亚)  japaneast (日本东部)" "Gray"
+Write-ColorOutput "请选择 Azure Speech Service 区域：" "Cyan"
 Write-Host ""
-$speechRegion = Read-UserInput -Prompt "请输入 Azure Speech Service 区域" -Required $true
+Write-Host "  1) eastasia          - 东亚（香港）"
+Write-Host "  2) southeastasia     - 东南亚（新加坡）"
+Write-Host "  3) eastus            - 美国东部"
+Write-Host "  4) westus            - 美国西部"
+Write-Host "  5) westeurope        - 西欧（荷兰）"
+Write-Host "  6) northeurope       - 北欧（爱尔兰）"
+Write-Host "  7) japaneast         - 日本东部（东京）"
+Write-Host "  8) koreacentral      - 韩国中部（首尔）"
+Write-Host "  9) australiaeast     - 澳大利亚东部（悉尼）"
+Write-Host "  0) 手动输入其他区域"
+Write-Host ""
+
+$speechRegion = $null
+while ($null -eq $speechRegion) {
+    Write-Host "请选择区域 (1-9 或 0): " -NoNewline -ForegroundColor Yellow
+    $regionChoice = Read-Host
+    
+    switch ($regionChoice) {
+        "1" { $speechRegion = "eastasia"; break }
+        "2" { $speechRegion = "southeastasia"; break }
+        "3" { $speechRegion = "eastus"; break }
+        "4" { $speechRegion = "westus"; break }
+        "5" { $speechRegion = "westeurope"; break }
+        "6" { $speechRegion = "northeurope"; break }
+        "7" { $speechRegion = "japaneast"; break }
+        "8" { $speechRegion = "koreacentral"; break }
+        "9" { $speechRegion = "australiaeast"; break }
+        "0" { 
+            $speechRegion = Read-UserInput -Prompt "请输入区域代码" -Required $true
+            break
+        }
+        default {
+            Write-ColorOutput "无效选择，请输入 0-9" "Red"
+            continue
+        }
+    }
+}
 
 # 验证连接
 Write-Host ""

@@ -51,26 +51,29 @@ def update_app() -> dict:
     logger = logging.getLogger("uvicorn.error")
     
     try:
-        # Check if /repo exists
-        if not os.path.exists("/repo"):
-            logger.error("Update failed: /repo directory does not exist")
+        # Use /app as the git repository directory
+        git_dir = "/app"
+        
+        # Check if git directory exists
+        if not os.path.exists(git_dir):
+            logger.error(f"Update failed: {git_dir} directory does not exist")
             raise HTTPException(
                 status_code=500,
-                detail="Update failed: /repo directory not found. Please rebuild the container."
+                detail=f"Update failed: {git_dir} directory not found."
             )
         
-        # Check if /repo is a git repository
-        if not os.path.exists("/repo/.git"):
-            logger.error("Update failed: /repo is not a git repository")
+        # Check if it's a git repository
+        if not os.path.exists(os.path.join(git_dir, ".git")):
+            logger.error(f"Update failed: {git_dir} is not a git repository")
             raise HTTPException(
                 status_code=500,
-                detail="Update failed: /repo is not a git repository. Please rebuild the container."
+                detail=f"Update failed: {git_dir} is not a git repository."
             )
         
-        logger.info("Starting git pull in /repo")
+        logger.info(f"Starting git pull in {git_dir}")
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
-            cwd="/repo",
+            cwd=git_dir,
             capture_output=True,
             text=True,
             timeout=30

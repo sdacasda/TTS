@@ -173,15 +173,23 @@ echo ""
 print_step 2 3 "配置 Azure Speech Service"
 echo ""
 
-print_info "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)"
+print_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+print_info "接下来需要您输入 Azure Speech Service 的密钥和区域"
+print_info "如果还没有密钥，请访问 Azure 门户创建:"
+print_info "👉 https://portal.azure.com"
+print_info "   (Speech Services > 密钥和终结点)"
+print_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
 # 获取 SPEECH_KEY
+print_info "📝 第 1 步: 输入密钥"
 speech_key=$(read_input "请输入 Azure Speech Service 密钥" "" "true")
 
 # 获取 SPEECH_REGION
 echo ""
-print_info "请选择 Azure Speech Service 区域："
+echo ""
+print_info "📍 第 2 步: 选择服务区域"
+print_info "请从以下列表中选择您的 Azure Speech Service 区域："
 echo ""
 echo "  1) eastasia          - 东亚（香港）"
 echo "  2) southeastasia     - 东南亚（新加坡）"

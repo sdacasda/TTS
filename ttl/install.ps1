@@ -190,15 +190,23 @@ Write-Host ""
 Write-Step -Current 2 -Total 3 -Message "配置 Azure Speech Service"
 Write-Host ""
 
-Write-ColorOutput "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)" "Cyan"
+Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Yellow"
+Write-ColorOutput "接下来需要您输入 Azure Speech Service 的密钥和区域" "Cyan"
+Write-ColorOutput "如果还没有密钥，请访问 Azure 门户创建:" "Cyan"
+Write-ColorOutput "👉 https://portal.azure.com" "Cyan"
+Write-ColorOutput "   (Speech Services > 密钥和终结点)" "Cyan"
+Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Yellow"
 Write-Host ""
 
 # 获取 SPEECH_KEY
+Write-ColorOutput "📝 第 1 步: 输入密钥" "Cyan"
 $speechKey = Read-UserInput -Prompt "请输入 Azure Speech Service 密钥" -Required $true
 
 # 获取 SPEECH_REGION
 Write-Host ""
-Write-ColorOutput "请选择 Azure Speech Service 区域：" "Cyan"
+Write-Host ""
+Write-ColorOutput "📍 第 2 步: 选择服务区域" "Cyan"
+Write-ColorOutput "请从以下列表中选择您的 Azure Speech Service 区域：" "Cyan"
 Write-Host ""
 Write-Host "  1) eastasia          - 东亚（香港）"
 Write-Host "  2) southeastasia     - 东南亚（新加坡）"

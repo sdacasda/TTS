@@ -210,3 +210,13 @@ async def tts_synthesize(
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/favicon.ico")
+def favicon():
+    from fastapi.responses import FileResponse
+    import os
+    favicon_path = os.path.join("app", "static", "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    return Response(status_code=204)

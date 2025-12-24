@@ -5,13 +5,18 @@ import subprocess
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
+from pydantic import BaseModel
+from typing import Optional
+import logging
 
 from .speech import client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
+
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(
     docs_url=None,
@@ -251,6 +256,110 @@ async def tts_synthesize(
 
     record_usage("tts_chars", len(text))
     return Response(content=audio_bytes, media_type="audio/mpeg")
+
+
+# ==================== OpenAI Compatible TTS API ====================
+
+class OpenAITTSRequest(BaseModel):
+    """OpenAI compatible TTS request model"""
+    model: str
+    input: str
+    voice: str
+    response_format: Optional[str] = "mp3"
+    speed: Optional[float] = 1.0
+    gain: Optional[float] = 0.0
+    sample_rate: Optional[int] = None
+
+
+@app.post("/v1/audio/speech")
+async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
+    """
+    OpenAI compatible TTS API endpoint.
+    
+    Compatible with: https://platform.openai.com/docs/api-reference/audio/createSpeech
+    
+    Request body:
+    - model: TTS model (mapped to Azure voice)
+    - input: Text to synthesize
+    - voice: Voice identifier (Azure voice name)
+    - response_format: Audio format (mp3, wav, opus, etc.)
+    - speed: Speech speed (0.25-4.0, default 1.0)
+    - gain: Volume gain in dB (optional, for compatibility)
+    - sample_rate: Sample rate in Hz (optional, for compatibility)
+    """
+    if not request.input.strip():
+        raise HTTPException(status_code=400, detail="Empty input text")
+    
+    # Speed mapping: OpenAI uses 0.25-4.0, Azure uses percentage
+    # Convert OpenAI speed to Azure rate: speed 1.0 = 0%, speed 2.0 = +100%
+    rate = int((request.speed - 1.0) * 100) if request.speed else 0
+    rate = max(-50, min(200, rate))  # Clamp to Azure limits
+    
+    # Map response format to Azure output format
+    format_mapping = {
+        "mp3": "audio-16khz-32kbitrate-mono-mp3",
+        "opus": "audio-16khz-32kbitrate-mono-opus",
+        "aac": "audio-16khz-32kbitrate-mono-mp3",  # Fallback to mp3
+        "flac": "audio-16khz-32kbitrate-mono-mp3",  # Fallback to mp3
+        "wav": "riff-16khz-16bit-mono-pcm",
+        "pcm": "raw-16khz-16bit-mono-pcm",
+    }
+    
+    output_format = format_mapping.get(
+        request.response_format.lower(), 
+        "audio-16khz-32kbitrate-mono-mp3"
+    )
+    
+    # Use voice from request directly (should be Azure voice name like "zh-CN-XiaoxiaoNeural")
+    voice = request.voice
+    
+    # Determine language from voice name
+    lang = "zh-CN"
+    if voice.startswith("en-"):
+        lang = "en-US"
+    elif voice.startswith("ja-"):
+        lang = "ja-JP"
+    elif voice.startswith("ko-"):
+        lang = "ko-KR"
+    elif "-" in voice:
+        lang = voice.split("-Neural")[0] if "Neural" in voice else voice.rsplit("-", 1)[0]
+    
+    logger.info(f"OpenAI TTS: voice={voice}, speed={request.speed}, rate={rate}, format={request.response_format}")
+    
+    try:
+        c = client_from_env()
+        audio_bytes = c.text_to_speech(
+            text=request.input,
+            voice=voice,
+            output_format=output_format,
+            lang=lang,
+            style=None,
+            role=None,
+            style_degree=None,
+            rate=rate,
+            pitch=0,
+            volume=0,
+            pause_ms=0,
+        )
+    except Exception as e:
+        logger.error(f"TTS synthesis failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Speech synthesis failed: {str(e)}")
+    
+    # Record usage
+    record_usage("tts_chars", len(request.input))
+    
+    # Determine media type
+    media_type_mapping = {
+        "mp3": "audio/mpeg",
+        "opus": "audio/opus",
+        "aac": "audio/aac",
+        "flac": "audio/flac",
+        "wav": "audio/wav",
+        "pcm": "audio/pcm",
+    }
+    media_type = media_type_mapping.get(request.response_format.lower(), "audio/mpeg")
+    
+    return Response(content=audio_bytes, media_type=media_type)
 
 
 @app.get("/", response_class=HTMLResponse)

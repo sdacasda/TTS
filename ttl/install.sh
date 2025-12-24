@@ -217,42 +217,10 @@ while true; do
     esac
 done
 
-echo ""
-print_success "✓ 已选择区域: $speech_region"
-echo ""
-print_info "⏳ 正在配置服务..."
-echo ""
-
-# 验证连接
-print_info "📡 接下来可以验证密钥和区域是否配置正确"
-test_connection=$(read_input "是否验证连接? (y/n)" "y" "false")
-if [ "$test_connection" = "y" ] || [ "$test_connection" = "Y" ]; then
-    if ! test_azure_connection "$speech_key" "$speech_region"; then
-        echo ""
-        continue_install=$(read_input "连接验证失败，是否继续安装? (y/n)" "n" "false")
-        if [ "$continue_install" != "y" ] && [ "$continue_install" != "Y" ]; then
-            print_warning "安装已取消。"
-            exit 1
-        fi
-    fi
-fi
-
-# 配额限制配置
-echo ""
-print_info "⚙️  配置使用配额限制"
-print_info "配额限制配置 (使用默认值)"
+# 静默生成配置文件
 stt_limit="18000"
 tts_limit="500000"
 pron_limit="18000"
-echo ""
-
-configure_limits=$(read_input "是否自定义配额限制? (y/n)" "n" "false")
-if [ "$configure_limits" = "y" ] || [ "$configure_limits" = "Y" ]; then
-    echo ""
-    stt_limit=$(read_input "STT 每月秒数限制" "18000" "false")
-    tts_limit=$(read_input "TTS 每月字符数限制" "500000" "false")
-    pron_limit=$(read_input "发音评估每月秒数限制" "18000" "false")
-fi
 
 # 生成 .env 文件
 cat > .env << EOF
@@ -284,19 +252,13 @@ FREE_PRON_SECONDS_LIMIT=${pron_limit}
 EOF
 
 echo ""
-print_success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-print_success "✓ 配置完成！密钥和区域已保存到 .env 文件"
-print_success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
 
 # 步骤 2: 启动服务
 print_step 2 2 "启动 Docker 服务"
 echo ""
 
-start_service=$(read_input "是否立即启动服务? (y/n)" "y" "false")
-if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
-    print_info "正在构建并启动服务..."
-    echo ""
+print_info "正在构建并启动服务..."
+echo ""
     
     if $COMPOSE_CMD up -d --build; then
         echo ""
@@ -371,12 +333,6 @@ if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
         echo "  4. 手动启动: cd $(pwd) && $COMPOSE_CMD up --build"
         exit 1
     fi
-else
-    print_warning "跳过服务启动。"
-    echo ""
-    print_info "稍后可以使用以下命令启动服务："
-    echo "  cd $(pwd)"
-    echo "  $COMPOSE_CMD up -d --build"
 fi
 
 # 显示安装摘要
@@ -415,17 +371,6 @@ if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
         echo ""
     fi
     print_success "打开后即可使用语音转文字、文字转语音等功能！"
-    echo ""
-fi
-
-if [ "$start_service" != "y" ] && [ "$start_service" != "Y" ]; then
-    print_header "🚀 如何启动"
-    print_info "请执行以下命令启动服务："
-    echo "  cd $(pwd)"
-    echo "  $COMPOSE_CMD up -d --build"
-    echo ""
-    print_info "启动后在浏览器中打开："
-    print_warning "  ➡️  http://localhost:8000"
     echo ""
 fi
 

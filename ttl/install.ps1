@@ -225,43 +225,10 @@ while ($null -eq $speechRegion) {
     }
 }
 
-Write-Host ""
-Write-ColorOutput "✓ 已选择区域: $speechRegion" "Green"
-Write-Host ""
-Write-ColorOutput "⏳ 正在配置服务..." "Cyan"
-Write-Host ""
-
-# 验证连接
-Write-ColorOutput "📡 接下来可以验证密钥和区域是否配置正确" "Cyan"
-$testConnection = Read-UserInput -Prompt "是否验证连接? (y/n)" -DefaultValue "y" -Required $false
-if ($testConnection -eq "y" -or $testConnection -eq "Y") {
-    $isValid = Test-AzureConnection -Key $speechKey -Region $speechRegion
-    if (-not $isValid) {
-        Write-Host ""
-        $continueInstall = Read-UserInput -Prompt "连接验证失败，是否继续安装? (y/n)" -DefaultValue "n" -Required $false
-        if ($continueInstall -ne "y" -and $continueInstall -ne "Y") {
-            Write-ColorOutput "安装已取消。" "Yellow"
-            exit 1
-        }
-    }
-}
-
-# 配额限制配置
-Write-Host ""
-Write-ColorOutput "⚙️  配置使用配额限制" "Cyan"
-Write-ColorOutput "配额限制配置 (使用默认值)" "Cyan"
+# 静默生成配置文件
 $sttLimit = "18000"
 $ttsLimit = "500000"
 $pronLimit = "18000"
-Write-Host ""
-
-$configureLimits = Read-UserInput -Prompt "是否自定义配额限制? (y/n)" -DefaultValue "n" -Required $false
-if ($configureLimits -eq "y" -or $configureLimits -eq "Y") {
-    Write-Host ""
-    $sttLimit = Read-UserInput -Prompt "STT 每月秒数限制" -DefaultValue "18000" -Required $false
-    $ttsLimit = Read-UserInput -Prompt "TTS 每月字符数限制" -DefaultValue "500000" -Required $false
-    $pronLimit = Read-UserInput -Prompt "发音评估每月秒数限制" -DefaultValue "18000" -Required $false
-}
 
 # 生成 .env 文件内容
 $envContent = @"
@@ -296,9 +263,6 @@ FREE_PRON_SECONDS_LIMIT=$pronLimit
 try {
     $envContent | Out-File -FilePath ".env" -Encoding UTF8 -NoNewline
     Write-Host ""
-    Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Green"
-    Write-ColorOutput "✓ 配置完成！密钥和区域已保存到 .env 文件" "Green"
-    Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Green"
 } catch {
     Write-ColorOutput "✗ 保存配置文件失败: $($_.Exception.Message)" "Red"
     exit 1
@@ -310,10 +274,8 @@ Write-Host ""
 Write-Step -Current 2 -Total 2 -Message "启动 Docker 服务"
 Write-Host ""
 
-$startService = Read-UserInput -Prompt "是否立即启动服务? (y/n)" -DefaultValue "y" -Required $false
-if ($startService -eq "y" -or $startService -eq "Y") {
-    Write-ColorOutput "正在构建并启动服务..." "Cyan"
-    Write-Host ""
+Write-ColorOutput "正在构建并启动服务..." "Cyan"
+Write-Host ""
     
     try {
         if ($composeCmd -eq "docker-compose") {
@@ -400,12 +362,6 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         Write-ColorOutput "  4. 手动启动: cd $((Get-Location).Path); $composeCmd up --build" "White"
         exit 1
     }
-} else {
-    Write-ColorOutput "跳过服务启动。" "Yellow"
-    Write-Host ""
-    Write-ColorOutput "稍后可以使用以下命令启动服务：" "Cyan"
-    Write-ColorOutput "  cd $((Get-Location).Path)" "White"
-    Write-ColorOutput "  $composeCmd up -d --build" "White"
 }
 
 # 显示安装摘要
@@ -446,17 +402,6 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         Write-Host ""
     }
     Write-ColorOutput "打开后即可使用语音转文字、文字转语音等功能！" "Green"
-    Write-Host ""
-}
-
-if ($startService -ne "y" -and $startService -ne "Y") {
-    Write-Header "🚀 如何启动"
-    Write-ColorOutput "请执行以下命令启动服务：" "Cyan"
-    Write-ColorOutput "  cd $((Get-Location).Path)" "White"
-    Write-ColorOutput "  $composeCmd up -d --build" "White"
-    Write-Host ""
-    Write-ColorOutput "启动后在浏览器中打开：" "Cyan"
-    Write-ColorOutput "  ➡️  http://localhost:8000" "Yellow"
     Write-Host ""
 }
 

@@ -302,11 +302,55 @@ if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
         echo ""
         # 等待服务启动
         print_info "等待服务启动..."
-        sleep 3
+        sleep 5
         
         # 检查容器状态
         if $COMPOSE_CMD ps | grep -q "speech-portal"; then
-            print_success "✓ 服务启动成功！"
+            print_success "✓ 容器已启动"
+            echo ""
+            
+            # HTTP 健康检查
+            print_info "正在检查服务健康状态..."
+            max_attempts=10
+            attempt=0
+            service_ok=false
+            
+            while [ $attempt -lt $max_attempts ]; do
+                if command -v curl &> /dev/null; then
+                    if curl -s -f http://localhost:8000/api/health > /dev/null 2>&1; then
+                        service_ok=true
+                        break
+                    fi
+                elif command -v wget &> /dev/null; then
+                    if wget -q -O- http://localhost:8000/api/health > /dev/null 2>&1; then
+                        service_ok=true
+                        break
+                    fi
+                fi
+                attempt=$((attempt + 1))
+                sleep 1
+            done
+            
+            echo ""
+            if [ "$service_ok" = true ]; then
+                print_success "✓ 服务健康检查通过！"
+            else
+                print_error "✗ 服务无法访问 (ERR_EMPTY_RESPONSE)"
+                echo ""
+                print_warning "容器已启动但服务未响应，可能原因："
+                echo "  • 应用程序启动失败"
+                echo "  • 配置错误（密钥或区域）"
+                echo "  • 端口被占用"
+                echo ""
+                print_info "请查看容器日志排查问题："
+                echo "  $COMPOSE_CMD logs"
+                echo ""
+                print_info "查看最近的错误日志："
+                echo "  $COMPOSE_CMD logs --tail=50 speech-portal"
+                echo ""
+                read -p "按回车键查看实时日志..."
+                $COMPOSE_CMD logs -f
+            fi
             echo ""
             print_info "当前运行的容器："
             $COMPOSE_CMD ps

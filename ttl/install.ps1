@@ -325,7 +325,7 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         Write-Host ""
         # 等待服务启动
         Write-ColorOutput "等待服务启动..." "Cyan"
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 5
         
         # 检查容器状态
         $psOutput = if ($composeCmd -eq "docker-compose") {
@@ -335,7 +335,51 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         }
         
         if ($psOutput -match "speech-portal") {
-            Write-ColorOutput "✓ 服务启动成功！" "Green"
+            Write-ColorOutput "✓ 容器已启动" "Green"
+            Write-Host ""
+            
+            # HTTP 健康检查
+            Write-ColorOutput "正在检查服务健康状态..." "Cyan"
+            $maxAttempts = 10
+            $serviceOk = $false
+            
+            for ($i = 0; $i -lt $maxAttempts; $i++) {
+                try {
+                    $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health" -TimeoutSec 1 -ErrorAction Stop
+                    if ($response.StatusCode -eq 200) {
+                        $serviceOk = $true
+                        break
+                    }
+                } catch {
+                    Start-Sleep -Seconds 1
+                }
+            }
+            
+            Write-Host ""
+            if ($serviceOk) {
+                Write-ColorOutput "✓ 服务健康检查通过！" "Green"
+            } else {
+                Write-ColorOutput "✗ 服务无法访问 (ERR_EMPTY_RESPONSE)" "Red"
+                Write-Host ""
+                Write-ColorOutput "容器已启动但服务未响应，可能原因：" "Yellow"
+                Write-ColorOutput "  • 应用程序启动失败" "White"
+                Write-ColorOutput "  • 配置错误（密钥或区域）" "White"
+                Write-ColorOutput "  • 端口被占用" "White"
+                Write-Host ""
+                Write-ColorOutput "请查看容器日志排查问题：" "Cyan"
+                Write-ColorOutput "  $composeCmd logs" "White"
+                Write-Host ""
+                Write-ColorOutput "查看最近的错误日志：" "Cyan"
+                Write-ColorOutput "  $composeCmd logs --tail=50 speech-portal" "White"
+                Write-Host ""
+                Write-Host "按回车键查看实时日志..." -NoNewline
+                Read-Host
+                if ($composeCmd -eq "docker-compose") {
+                    docker-compose logs -f
+                } else {
+                    docker compose logs -f
+                }
+            }
             Write-Host ""
             Write-ColorOutput "当前运行的容器：" "Cyan"
             Write-Host $psOutput

@@ -1,8 +1,0 @@
-{
-  email {$ACME_EMAIL}
-}
-
-{$DOMAIN} {
-  encode gzip
-  reverse_proxy speech-portal:8000
-}

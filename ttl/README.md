@@ -4,11 +4,61 @@
 
 ## 环境要求
 
-- Docker 24+ 与 docker compose 插件。
-- 必需：Azure 语音资源的 `SPEECH_KEY` 与 `SPEECH_REGION`。
-- 可选：`OPENAI_TTS_API_KEY`，用于向兼容 OpenAI TTS 的后端发送 `api-key` 头。
+- Docker 24+ 与 docker compose 插件
+- 必需：Azure 语音资源的 `SPEECH_KEY` 与 `SPEECH_REGION`
+- 可选：`OPENAI_TTS_API_KEY`，用于向兼容 OpenAI TTS 的后端发送 `api-key` 头
 
-## 快速开始：本地构建（Docker Compose）
+## 🚀 一键安装（服务器部署推荐）
+
+无需手动克隆仓库，一条命令完成全部部署：
+
+**Linux / macOS:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/install.sh)
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/install.ps1 | iex
+```
+
+一键安装脚本会自动：
+1. ✅ 检查系统依赖（Git, Docker, Docker Compose）
+2. ✅ 克隆项目代码到本地
+3. ✅ 交互式配置 Azure Speech Service
+4. ✅ 验证密钥连接
+5. ✅ 自动启动服务
+
+---
+
+## 📦 手动部署
+
+### 方式一：使用交互式配置脚本（推荐）
+
+**适用场景：** 已经克隆了代码，只需要配置环境变量
+
+**Windows (PowerShell):**
+```powershell
+cd ttl
+.\setup.ps1
+docker compose up -d --build
+```
+
+**Linux / macOS:**
+```bash
+cd ttl
+chmod +x setup.sh
+./setup.sh
+docker compose up -d --build
+```
+
+脚本会引导您：
+- 输入 Azure Speech Service 密钥和区域
+- 可选：配置使用配额限制
+- 自动验证连接
+- 生成 `.env` 配置文件
+
+### 方式二：传统手动配置
 
 1. 复制环境变量示例：
 
@@ -16,16 +66,15 @@
    cp .env.example .env
    ```
 
-2. 编辑 `.env`，填写 `SPEECH_KEY`、`SPEECH_REGION`（可选：`OPENAI_TTS_API_KEY`）。
+2. 编辑 `.env`，填写 `SPEECH_KEY`、`SPEECH_REGION`（可选：`OPENAI_TTS_API_KEY`）
+
 3. 启动服务：
 
    ```bash
    docker compose up -d --build
    ```
 
-4. 访问应用：`http://<你的服务器>:8000`。
-
-## 使用预构建镜像：docker 拉取安装
+### 方式三：使用预构建镜像
 
 如果已将本仓库的 `backend/Dockerfile` 构建并推送到镜像仓库（如 GHCR 或 Docker Hub），可直接拉取运行：
 
@@ -42,21 +91,18 @@ docker run -d --name speech-portal \
 
 将 `ghcr.io/your-namespace/speech-portal:latest` 替换为你实际推送的镜像地址。
 
-## 一键安装（克隆 + 运行）
+---
 
-```bash
-git clone https://gist.github.com/<YOUR_GIST_ID>.git speech-portal \
-  && cd speech-portal \
-  && cp .env.example .env \
-  && docker compose up -d --build
-```
+## 🌐 访问服务
 
-## 配额说明
+启动后访问：`http://<你的服务器>:8000`
+
+## 📊 配额说明
 
 Azure Speech Free(F0) 无法通过统一 API 查询「剩余额度」，本项目通过本地计量粗略展示：
 
-- 语音识别（STT）：统计音频时长秒数。
-- 语音合成（TTS）：统计输入文本字符数。
-- 发音评测：统计音频时长秒数。
+- **语音识别（STT）**：统计音频时长秒数
+- **语音合成（TTS）**：统计输入文本字符数
+- **发音评测**：统计音频时长秒数
 
 可在 `.env` 中调整月度限额。

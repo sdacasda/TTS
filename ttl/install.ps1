@@ -321,12 +321,39 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         } else {
             docker compose up -d --build
         }
+        
         Write-Host ""
-        Write-ColorOutput "✓ 服务启动成功！" "Green"
+        # 等待服务启动
+        Write-ColorOutput "等待服务启动..." "Cyan"
+        Start-Sleep -Seconds 3
+        
+        # 检查容器状态
+        $psOutput = if ($composeCmd -eq "docker-compose") {
+            docker-compose ps
+        } else {
+            docker compose ps
+        }
+        
+        if ($psOutput -match "speech-portal") {
+            Write-ColorOutput "✓ 服务启动成功！" "Green"
+            Write-Host ""
+            Write-ColorOutput "当前运行的容器：" "Cyan"
+            Write-Host $psOutput
+        } else {
+            Write-ColorOutput "⚠ 容器未找到，请检查状态" "Yellow"
+            Write-Host ""
+            Write-ColorOutput "请检查日志：" "Cyan"
+            Write-ColorOutput "  $composeCmd logs" "White"
+        }
     } catch {
         Write-Host ""
         Write-ColorOutput "✗ 服务启动失败: $($_.Exception.Message)" "Red"
-        Write-ColorOutput "请检查 Docker 日志: $composeCmd logs" "Yellow"
+        Write-Host ""
+        Write-ColorOutput "请尝试以下排查步骤：" "Cyan"
+        Write-ColorOutput "  1. 检查 Docker 是否正在运行: docker ps" "White"
+        Write-ColorOutput "  2. 查看详细日志: cd $((Get-Location).Path); $composeCmd logs" "White"
+        Write-ColorOutput "  3. 检查配置文件: cat .env" "White"
+        Write-ColorOutput "  4. 手动启动: cd $((Get-Location).Path); $composeCmd up --build" "White"
         exit 1
     }
 } else {

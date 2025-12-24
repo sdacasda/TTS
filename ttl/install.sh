@@ -300,11 +300,31 @@ if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
     
     if $COMPOSE_CMD up -d --build; then
         echo ""
-        print_success "✓ 服务启动成功！"
+        # 等待服务启动
+        print_info "等待服务启动..."
+        sleep 3
+        
+        # 检查容器状态
+        if $COMPOSE_CMD ps | grep -q "speech-portal"; then
+            print_success "✓ 服务启动成功！"
+            echo ""
+            print_info "当前运行的容器："
+            $COMPOSE_CMD ps
+        else
+            print_warning "⚠ 容器未找到，请检查状态"
+            echo ""
+            print_info "请检查日志："
+            echo "  $COMPOSE_CMD logs"
+        fi
     else
         echo ""
         print_error "✗ 服务启动失败"
-        print_info "请检查 Docker 日志: $COMPOSE_CMD logs"
+        echo ""
+        print_info "请尝试以下排查步骤："
+        echo "  1. 检查 Docker 是否正在运行: docker ps"
+        echo "  2. 查看详细日志: cd $(pwd) && $COMPOSE_CMD logs"
+        echo "  3. 检查配置文件: cat .env"
+        echo "  4. 手动启动: cd $(pwd) && $COMPOSE_CMD up --build"
         exit 1
     fi
 else

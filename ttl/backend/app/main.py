@@ -11,7 +11,8 @@ from typing import Optional
 import logging
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Security, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse, Response, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -23,6 +24,40 @@ from .usage import get_usage_overview, get_usage_summary, init_db, month_key, re
 
 load_dotenv()
 logger = logging.getLogger("uvicorn.error")
+
+# Security scheme
+security = HTTPBearer(auto_error=False)
+
+async def verify_api_key(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+):
+    """
+    Verify API Key if configured in environment variables.
+    If API_KEY is set, requests must provide it via Bearer token.
+    If API_KEY is not set, authentication is skipped.
+    """
+    expected_api_key = os.getenv("API_KEY")
+    
+    # If no API key is configured on the server, allow access without auth
+    if not expected_api_key:
+        return None
+        
+    # If API key is configured, client must provide it
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    if credentials.credentials != expected_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API Key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return credentials.credentials
 
 
 @asynccontextmanager
@@ -257,7 +292,7 @@ class OpenAITTSRequest(BaseModel):
     sample_rate: Optional[int] = None
 
 
-@app.post("/v1/audio/speech")
+@app.post("/v1/audio/speech", dependencies=[Depends(verify_api_key)])
 async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
     """
     OpenAI compatible TTS API endpoint.

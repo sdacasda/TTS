@@ -2,7 +2,7 @@
 
 ## Quick start (Docker)
 
-1. Copy `.env.example` to `.env` and fill `SPEECH_KEY` / `SPEECH_REGION`.
+1. Copy `.env.example` to `.env` and fill `SPEECH_KEY` / `SPEECH_REGION` (optional: `OPENAI_TTS_API_KEY` for OpenAI TTS–compatible headers).
 2. Start:
 
 ```bash

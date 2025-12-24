@@ -10,9 +10,10 @@ import requests
 
 
 class SpeechClient:
-    def __init__(self, key: str, region: str):
+    def __init__(self, key: str, region: str, openai_tts_api_key: str | None = None):
         self.key = key
         self.region = region
+        self.openai_tts_api_key = openai_tts_api_key
 
     def _stt_url(self, language: str) -> str:
         return (
@@ -26,12 +27,18 @@ class SpeechClient:
     def _tts_voices_url(self) -> str:
         return f"https://{self.region}.tts.speech.microsoft.com/cognitiveservices/voices/list"
 
-    def list_voices(self) -> list[dict[str, Any]]:
+    def _tts_headers(self) -> dict[str, str]:
         headers = {
             "Ocp-Apim-Subscription-Key": self.key,
-            "Accept": "application/json",
             "User-Agent": "speech-portal",
         }
+        if self.openai_tts_api_key:
+            headers["api-key"] = self.openai_tts_api_key
+        return headers
+
+    def list_voices(self) -> list[dict[str, Any]]:
+        headers = self._tts_headers()
+        headers["Accept"] = "application/json"
         r = requests.get(self._tts_voices_url(), headers=headers, timeout=60)
         r.raise_for_status()
         data = r.json()
@@ -104,12 +111,9 @@ class SpeechClient:
             pause_ms=pause_ms,
         )
 
-        headers = {
-            "Ocp-Apim-Subscription-Key": self.key,
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": output_format,
-            "User-Agent": "speech-portal",
-        }
+        headers = self._tts_headers()
+        headers["Content-Type"] = "application/ssml+xml"
+        headers["X-Microsoft-OutputFormat"] = output_format
         r = requests.post(self._tts_url(), headers=headers, data=ssml.encode("utf-8"), timeout=60)
         r.raise_for_status()
         return r.content
@@ -213,6 +217,7 @@ def build_ssml(
 def client_from_env() -> SpeechClient:
     key = os.getenv("SPEECH_KEY")
     region = os.getenv("SPEECH_REGION")
+    openai_tts_api_key = os.getenv("OPENAI_TTS_API_KEY")
     if not key or not region:
         raise RuntimeError("Missing SPEECH_KEY or SPEECH_REGION")
-    return SpeechClient(key=key, region=region)
+    return SpeechClient(key=key, region=region, openai_tts_api_key=openai_tts_api_key)

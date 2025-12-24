@@ -4,13 +4,14 @@ set -euo pipefail
 APP_DIR=${APP_DIR:-speech-portal}
 SPEECH_KEY=${SPEECH_KEY:-}
 SPEECH_REGION=${SPEECH_REGION:-}
+OPENAI_TTS_API_KEY=${OPENAI_TTS_API_KEY:-}
 HOST_PORT=${HOST_PORT:-}
 FREE_STT_SECONDS_LIMIT=${FREE_STT_SECONDS_LIMIT:-18000}
 FREE_TTS_CHARS_LIMIT=${FREE_TTS_CHARS_LIMIT:-500000}
 FREE_PRON_SECONDS_LIMIT=${FREE_PRON_SECONDS_LIMIT:-18000}
 
 usage() {
-  echo "Usage: ./install.sh [--app-dir DIR] [--speech-key KEY] [--speech-region REGION] [--port HOST_PORT]" >&2
+  echo "Usage: ./install.sh [--app-dir DIR] [--speech-key KEY] [--speech-region REGION] [--openai-tts-api-key KEY] [--port HOST_PORT]" >&2
 }
 
 is_port_free() {
@@ -51,6 +52,8 @@ while [[ $# -gt 0 ]]; do
       SPEECH_KEY="$2"; shift 2 ;;
     --speech-region)
       SPEECH_REGION="$2"; shift 2 ;;
+    --openai-tts-api-key)
+      OPENAI_TTS_API_KEY="$2"; shift 2 ;;
     --port)
       HOST_PORT="$2"; shift 2 ;;
     -h|--help)
@@ -68,6 +71,9 @@ if [[ -z "${SPEECH_KEY}" ]]; then
 fi
 if [[ -z "${SPEECH_REGION}" ]]; then
   read -r -p "Enter SPEECH_REGION (e.g. eastus): " SPEECH_REGION
+fi
+if [[ -z "${OPENAI_TTS_API_KEY}" ]]; then
+  read -r -p "Enter OPENAI_TTS_API_KEY for OpenAI-compatible TTS (optional, press Enter to skip): " OPENAI_TTS_API_KEY
 fi
 
 if [[ -n "${HOST_PORT}" ]]; then
@@ -297,9 +303,10 @@ import requests
 
 
 class SpeechClient:
-    def __init__(self, key: str, region: str):
+    def __init__(self, key: str, region: str, openai_tts_api_key: str | None = None):
         self.key = key
         self.region = region
+        self.openai_tts_api_key = openai_tts_api_key
 
     def _stt_url(self, language: str) -> str:
         return (
@@ -313,12 +320,18 @@ class SpeechClient:
     def _tts_voices_url(self) -> str:
         return f"https://{self.region}.tts.speech.microsoft.com/cognitiveservices/voices/list"
 
-    def list_voices(self) -> list[dict[str, Any]]:
+    def _tts_headers(self) -> dict[str, str]:
         headers = {
             "Ocp-Apim-Subscription-Key": self.key,
-            "Accept": "application/json",
             "User-Agent": "speech-portal",
         }
+        if self.openai_tts_api_key:
+            headers["api-key"] = self.openai_tts_api_key
+        return headers
+
+    def list_voices(self) -> list[dict[str, Any]]:
+        headers = self._tts_headers()
+        headers["Accept"] = "application/json"
         r = requests.get(self._tts_voices_url(), headers=headers, timeout=60)
         r.raise_for_status()
         data = r.json()
@@ -391,12 +404,9 @@ class SpeechClient:
             pause_ms=pause_ms,
         )
 
-        headers = {
-            "Ocp-Apim-Subscription-Key": self.key,
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": output_format,
-            "User-Agent": "speech-portal",
-        }
+        headers = self._tts_headers()
+        headers["Content-Type"] = "application/ssml+xml"
+        headers["X-Microsoft-OutputFormat"] = output_format
         r = requests.post(self._tts_url(), headers=headers, data=ssml.encode("utf-8"), timeout=60)
         r.raise_for_status()
         return r.content
@@ -500,9 +510,10 @@ def build_ssml(
 def client_from_env() -> SpeechClient:
     key = os.getenv("SPEECH_KEY")
     region = os.getenv("SPEECH_REGION")
+    openai_tts_api_key = os.getenv("OPENAI_TTS_API_KEY")
     if not key or not region:
         raise RuntimeError("Missing SPEECH_KEY or SPEECH_REGION")
-    return SpeechClient(key=key, region=region)
+    return SpeechClient(key=key, region=region, openai_tts_api_key=openai_tts_api_key)
 PY
 
 cat > "${APP_DIR}/backend/app/usage.py" <<'PY'
@@ -1631,6 +1642,7 @@ touch "${APP_DIR}/data/.gitkeep" || true
 cat > "${APP_DIR}/.env" <<ENV
 SPEECH_KEY=${SPEECH_KEY}
 SPEECH_REGION=${SPEECH_REGION}
+OPENAI_TTS_API_KEY=${OPENAI_TTS_API_KEY}
 FREE_STT_SECONDS_LIMIT=${FREE_STT_SECONDS_LIMIT}
 FREE_TTS_CHARS_LIMIT=${FREE_TTS_CHARS_LIMIT}
 FREE_PRON_SECONDS_LIMIT=${FREE_PRON_SECONDS_LIMIT}

@@ -10,7 +10,27 @@
 
 ## 🚀 一键安装（服务器部署推荐）
 
-无需手动克隆仓库，一条命令完成全部部署：
+### 方式 A：快速安装（推荐，无交互）
+
+**适用场景：** 服务器环境，不想手动输入配置
+
+```bash
+# 设置环境变量
+export SPEECH_KEY='你的Azure密钥'
+export SPEECH_REGION='你的区域'  # 如: eastasia, westus
+
+# 执行安装
+bash <(curl -fsSL https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/quick-install.sh)
+```
+
+一条命令示例（替换为你的实际密钥）：
+```bash
+export SPEECH_KEY='a1b2c3d4e5f6...' && export SPEECH_REGION='eastasia' && bash <(curl -fsSL https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/quick-install.sh)
+```
+
+### 方式 B：交互式安装
+
+无需手动克隆仓库，脚本会引导你输入配置：
 
 **Linux / macOS:**
 ```bash
@@ -22,10 +42,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/instal
 irm https://raw.githubusercontent.com/sdacasda/TTS/main/ttl/install.ps1 | iex
 ```
 
-一键安装脚本会自动：
+交互式安装脚本会：
 1. ✅ 检查系统依赖（Git, Docker, Docker Compose）
-2. ✅ 克隆项目代码到本地
-3. ✅ 交互式配置 Azure Speech Service
+2. ✅ 自动从默认仓库克隆代码
+3. ✅ 交互式输入 Azure Speech Service 配置
 4. ✅ 验证密钥连接
 5. ✅ 自动启动服务
 

@@ -39,12 +39,18 @@ class SpeechClient:
     def list_voices(self) -> list[dict[str, Any]]:
         headers = self._tts_headers()
         headers["Accept"] = "application/json"
-        r = requests.get(self._tts_voices_url(), headers=headers, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        if not isinstance(data, list):
-            raise RuntimeError("Unexpected voices list response")
-        return data
+        try:
+            r = requests.get(self._tts_voices_url(), headers=headers, timeout=60)
+            r.raise_for_status()
+            data = r.json()
+            if not isinstance(data, list):
+                raise RuntimeError("Unexpected voices list response")
+            return data
+        except requests.exceptions.HTTPError as e:
+            error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
+            raise RuntimeError(f"Azure API error: {error_detail}")
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Network error: {str(e)}")
 
     def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
         headers = {

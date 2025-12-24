@@ -84,11 +84,18 @@ def usage_overview() -> dict:
 
 @app.get("/api/tts/voices")
 def tts_voices(locale: str | None = None, neural_only: bool = True) -> dict:
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    
     try:
         c = client_from_env()
+        logger.info(f"Fetching voices from Azure, region: {c.region}")
         voices = c.list_voices()
+        logger.info(f"Successfully fetched {len(voices)} voices")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        error_msg = f"Failed to fetch voices: {type(e).__name__}: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=502, detail=error_msg)
 
     filtered: list[dict] = []
     for v in voices:

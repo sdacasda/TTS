@@ -13,7 +13,10 @@ from starlette.requests import Request
 from .speech import client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
 
-app = FastAPI()
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -34,7 +37,6 @@ def health() -> dict:
 def update_app() -> dict:
     """Update application code online"""
     try:
-        # 执行 git pull
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
             cwd="/app",
@@ -49,12 +51,11 @@ def update_app() -> dict:
                 detail=f"Update failed: {result.stderr}"
             )
         
-        # 延迟重启容器（让响应先返回）
         import threading
         def restart():
             import time
             time.sleep(2)
-            os.system("kill -TERM 1")  # 发送SIGTERM信号给PID 1（通常是主进程）
+            os.system("kill -TERM 1")
         
         threading.Thread(target=restart, daemon=True).start()
         

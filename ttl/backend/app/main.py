@@ -47,7 +47,27 @@ def debug_env() -> dict:
 @app.post("/api/update")
 def update_app() -> dict:
     """Update application code online"""
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    
     try:
+        # Check if /repo exists
+        if not os.path.exists("/repo"):
+            logger.error("Update failed: /repo directory does not exist")
+            raise HTTPException(
+                status_code=500,
+                detail="Update failed: /repo directory not found. Please rebuild the container."
+            )
+        
+        # Check if /repo is a git repository
+        if not os.path.exists("/repo/.git"):
+            logger.error("Update failed: /repo is not a git repository")
+            raise HTTPException(
+                status_code=500,
+                detail="Update failed: /repo is not a git repository. Please rebuild the container."
+            )
+        
+        logger.info("Starting git pull in /repo")
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
             cwd="/repo",
@@ -56,7 +76,12 @@ def update_app() -> dict:
             timeout=30
         )
         
+        logger.info(f"Git pull output: {result.stdout}")
+        if result.stderr:
+            logger.warning(f"Git pull stderr: {result.stderr}")
+        
         if result.returncode != 0:
+            logger.error(f"Git pull failed with code {result.returncode}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Update failed: {result.stderr}"

@@ -118,30 +118,21 @@ clear
 
 print_header "Azure Speech Portal 一键安装向导"
 
-print_success "欢迎使用 Azure Speech Portal 一键安装脚本！"
-echo ""
-echo "本脚本将帮助您："
-echo "  1. 克隆项目代码"
-echo "  2. 配置 Azure Speech Service"
-echo "  3. 启动 Docker 服务"
-echo ""
+# 静默检查依赖
+check_command "git" > /dev/null 2>&1 || {
+    print_error "错误: 未找到 Git，请先安装 Git"
+    exit 1
+}
 
-# 步骤 1: 检查依赖
-print_step 1 5 "检查系统依赖"
-echo ""
-
-check_command "git"
-print_success "✓ Git 已安装"
-
-check_command "docker"
-print_success "✓ Docker 已安装"
+check_command "docker" > /dev/null 2>&1 || {
+    print_error "错误: 未找到 Docker，请先安装 Docker"
+    exit 1
+}
 
 if command -v docker-compose &> /dev/null; then
     COMPOSE_CMD="docker-compose"
-    print_success "✓ Docker Compose 已安装"
 elif docker compose version &> /dev/null 2>&1; then
     COMPOSE_CMD="docker compose"
-    print_success "✓ Docker Compose (插件) 已安装"
 else
     print_error "错误: 未找到 docker-compose 或 docker compose"
     print_info "请先安装 Docker Compose"
@@ -169,8 +160,8 @@ cd "$install_dir/ttl" || {
 
 echo ""
 
-# 步骤 2: 配置 Azure Speech Service
-print_step 2 3 "配置 Azure Speech Service"
+# 步骤 1: 配置 Azure Speech Service
+print_step 1 2 "配置 Azure Speech Service"
 echo ""
 
 print_warning "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -287,8 +278,8 @@ EOF
 print_success "✓ 配置文件已生成"
 echo ""
 
-# 步骤 3: 启动服务
-print_step 3 3 "启动 Docker 服务"
+# 步骤 2: 启动服务
+print_step 2 2 "启动 Docker 服务"
 echo ""
 
 start_service=$(read_input "是否立即启动服务? (y/n)" "y" "false")

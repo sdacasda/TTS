@@ -114,33 +114,14 @@ Clear-Host
 
 Write-Header "Azure Speech Portal 一键安装向导"
 
-Write-ColorOutput "欢迎使用 Azure Speech Portal 一键安装脚本！" "Green"
-Write-Host ""
-Write-ColorOutput "本脚本将帮助您：" "White"
-Write-ColorOutput "  1. 克隆项目代码" "White"
-Write-ColorOutput "  2. 配置 Azure Speech Service" "White"
-Write-ColorOutput "  3. 启动 Docker 服务" "White"
-Write-Host ""
-
-# 步骤 1: 检查依赖
-Write-Step -Current 1 -Total 5 -Message "检查系统依赖"
-Write-Host ""
-
-# 检查 Git
-if (Test-CommandExists "git") {
-    Write-ColorOutput "✓ Git 已安装" "Green"
-} else {
-    Write-ColorOutput "✗ 错误: 未找到 Git" "Red"
-    Write-ColorOutput "请先安装 Git: https://git-scm.com/" "Yellow"
+# 静默检查依赖
+if (-not (Test-CommandExists "git")) {
+    Write-ColorOutput "✗ 错误: 未找到 Git，请先安装 Git: https://git-scm.com/" "Red"
     exit 1
 }
 
-# 检查 Docker
-if (Test-CommandExists "docker") {
-    Write-ColorOutput "✓ Docker 已安装" "Green"
-} else {
-    Write-ColorOutput "✗ 错误: 未找到 Docker" "Red"
-    Write-ColorOutput "请先安装 Docker: https://www.docker.com/" "Yellow"
+if (-not (Test-CommandExists "docker")) {
+    Write-ColorOutput "✗ 错误: 未找到 Docker，请先安装 Docker: https://www.docker.com/" "Red"
     exit 1
 }
 
@@ -148,12 +129,10 @@ if (Test-CommandExists "docker") {
 $composeCmd = $null
 if (Test-CommandExists "docker-compose") {
     $composeCmd = "docker-compose"
-    Write-ColorOutput "✓ Docker Compose 已安装" "Green"
 } else {
     try {
         docker compose version | Out-Null
         $composeCmd = "docker compose"
-        Write-ColorOutput "✓ Docker Compose (插件) 已安装" "Green"
     } catch {
         Write-ColorOutput "✗ 错误: 未找到 docker-compose 或 docker compose" "Red"
         Write-ColorOutput "请先安装 Docker Compose" "Yellow"
@@ -186,8 +165,8 @@ if (-not (Test-Path $projectPath)) {
 Set-Location $projectPath
 Write-Host ""
 
-# 步骤 2: 配置 Azure Speech Service
-Write-Step -Current 2 -Total 3 -Message "配置 Azure Speech Service"
+# 步骤 1: 配置 Azure Speech Service
+Write-Step -Current 1 -Total 2 -Message "配置 Azure Speech Service"
 Write-Host ""
 
 Write-ColorOutput "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" "Yellow"
@@ -316,8 +295,8 @@ try {
 
 Write-Host ""
 
-# 步骤 3: 启动服务
-Write-Step -Current 3 -Total 3 -Message "启动 Docker 服务"
+# 步骤 2: 启动服务
+Write-Step -Current 2 -Total 2 -Message "启动 Docker 服务"
 Write-Host ""
 
 $startService = Read-UserInput -Prompt "是否立即启动服务? (y/n)" -DefaultValue "y" -Required $false

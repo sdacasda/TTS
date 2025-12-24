@@ -163,42 +163,16 @@ if (Test-CommandExists "docker-compose") {
 
 Write-Host ""
 
-# 步骤 2: 配置安装目录
-Write-Step -Current 2 -Total 5 -Message "配置安装目录"
-Write-Host ""
-
-Write-ColorOutput "将从仓库克隆代码: $DEFAULT_REPO" "Cyan"
-Write-ColorOutput "使用分支: $DEFAULT_BRANCH" "Cyan"
-Write-Host ""
-
-$installDir = Read-UserInput -Prompt "请输入安装目录名称" -DefaultValue $DEFAULT_INSTALL_DIR -Required $false
-
-Write-Host ""
-
-# 检查目录是否已存在
+# 静默克隆代码
+$installDir = $DEFAULT_INSTALL_DIR
 if (Test-Path $installDir) {
-    Write-ColorOutput "⚠ 警告: 目录 '$installDir' 已存在！" "Yellow"
-    $overwrite = Read-UserInput -Prompt "是否删除并重新安装? (y/n)" -DefaultValue "n" -Required $false
-    if ($overwrite -eq "y" -or $overwrite -eq "Y") {
-        Write-ColorOutput "正在删除旧目录..." "Yellow"
-        Remove-Item -Path $installDir -Recurse -Force
-        Write-ColorOutput "✓ 旧目录已删除" "Green"
-    } else {
-        Write-ColorOutput "安装已取消。" "Yellow"
-        exit 0
-    }
+    Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
 }
 
-# 步骤 3: 克隆仓库
-Write-Step -Current 3 -Total 5 -Message "克隆项目代码"
-Write-Host ""
-
-Write-ColorOutput "正在从 $DEFAULT_REPO 克隆代码..." "Cyan"
 try {
-    git clone -b $DEFAULT_BRANCH $DEFAULT_REPO $installDir 2>&1 | Out-Null
-    Write-ColorOutput "✓ 代码克隆成功" "Green"
+    git clone -b $DEFAULT_BRANCH $DEFAULT_REPO $installDir -q 2>&1 | Out-Null
 } catch {
-    Write-ColorOutput "✗ 克隆失败: $($_.Exception.Message)" "Red"
+    Write-ColorOutput "✗ 代码克隆失败: $($_.Exception.Message)" "Red"
     exit 1
 }
 
@@ -212,8 +186,8 @@ if (-not (Test-Path $projectPath)) {
 Set-Location $projectPath
 Write-Host ""
 
-# 步骤 4: 配置 Azure Speech Service
-Write-Step -Current 4 -Total 5 -Message "配置 Azure Speech Service"
+# 步骤 2: 配置 Azure Speech Service
+Write-Step -Current 2 -Total 3 -Message "配置 Azure Speech Service"
 Write-Host ""
 
 Write-ColorOutput "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)" "Cyan"
@@ -334,8 +308,8 @@ try {
 
 Write-Host ""
 
-# 步骤 5: 启动服务
-Write-Step -Current 5 -Total 5 -Message "启动 Docker 服务"
+# 步骤 3: 启动服务
+Write-Step -Current 3 -Total 3 -Message "启动 Docker 服务"
 Write-Host ""
 
 $startService = Read-UserInput -Prompt "是否立即启动服务? (y/n)" -DefaultValue "y" -Required $false

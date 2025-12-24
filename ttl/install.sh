@@ -150,41 +150,14 @@ fi
 
 echo ""
 
-# 步骤 2: 配置安装目录
-print_step 2 5 "配置安装目录"
-echo ""
-
-print_info "将从仓库克隆代码: $DEFAULT_REPO"
-print_info "使用分支: $DEFAULT_BRANCH"
-echo ""
-
-install_dir=$(read_input "请输入安装目录名称" "$DEFAULT_INSTALL_DIR" "false")
-
-echo ""
-
-# 检查目录是否已存在
+# 静默克隆代码
+install_dir="$DEFAULT_INSTALL_DIR"
 if [ -d "$install_dir" ]; then
-    print_warning "⚠ 警告: 目录 '$install_dir' 已存在！"
-    overwrite=$(read_input "是否删除并重新安装? (y/n)" "n" "false")
-    if [ "$overwrite" = "y" ] || [ "$overwrite" = "Y" ]; then
-        print_warning "正在删除旧目录..."
-        rm -rf "$install_dir"
-        print_success "✓ 旧目录已删除"
-    else
-        print_warning "安装已取消。"
-        exit 0
-    fi
+    rm -rf "$install_dir" 2>/dev/null || true
 fi
 
-# 步骤 3: 克隆仓库
-print_step 3 5 "克隆项目代码"
-echo ""
-
-print_info "正在从 $DEFAULT_REPO 克隆代码..."
-if git clone -b "$DEFAULT_BRANCH" "$DEFAULT_REPO" "$install_dir" 2>&1; then
-    print_success "✓ 代码克隆成功"
-else
-    print_error "✗ 克隆失败"
+if ! git clone -b "$DEFAULT_BRANCH" "$DEFAULT_REPO" "$install_dir" -q 2>/dev/null; then
+    print_error "✗ 代码克隆失败"
     exit 1
 fi
 
@@ -196,8 +169,8 @@ cd "$install_dir/ttl" || {
 
 echo ""
 
-# 步骤 4: 配置 Azure Speech Service
-print_step 4 5 "配置 Azure Speech Service"
+# 步骤 2: 配置 Azure Speech Service
+print_step 2 3 "配置 Azure Speech Service"
 echo ""
 
 print_info "如需获取密钥，请访问: https://portal.azure.com (Speech Services > 密钥和终结点)"
@@ -306,8 +279,8 @@ EOF
 print_success "✓ 配置文件已生成"
 echo ""
 
-# 步骤 5: 启动服务
-print_step 5 5 "启动 Docker 服务"
+# 步骤 3: 启动服务
+print_step 3 3 "启动 Docker 服务"
 echo ""
 
 start_service=$(read_input "是否立即启动服务? (y/n)" "y" "false")

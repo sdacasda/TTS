@@ -363,6 +363,30 @@ if ($startService -eq "y" -or $startService -eq "Y") {
         # 忽略错误
     }
     Write-Host ""
+    
+    Write-Header "🚀 如何使用"
+    Write-ColorOutput "请在浏览器中打开以下地址：" "Green"
+    Write-Host ""
+    Write-ColorOutput "  ➡️  http://localhost:8000" "Yellow"
+    Write-Host ""
+    if ($serverIp) {
+        Write-ColorOutput "或者使用服务器 IP 访问：" "Cyan"
+        Write-ColorOutput "  ➡️  http://${serverIp}:8000" "Yellow"
+        Write-Host ""
+    }
+    Write-ColorOutput "打开后即可使用语音转文字、文字转语音等功能！" "Green"
+    Write-Host ""
+}
+
+if ($startService -ne "y" -and $startService -ne "Y") {
+    Write-Header "🚀 如何启动"
+    Write-ColorOutput "请执行以下命令启动服务：" "Cyan"
+    Write-ColorOutput "  cd $((Get-Location).Path)" "White"
+    Write-ColorOutput "  $composeCmd up -d --build" "White"
+    Write-Host ""
+    Write-ColorOutput "启动后在浏览器中打开：" "Cyan"
+    Write-ColorOutput "  ➡️  http://localhost:8000" "Yellow"
+    Write-Host ""
 }
 
 Write-ColorOutput "常用命令：" "Cyan"

@@ -339,6 +339,30 @@ if [ "$start_service" = "y" ] || [ "$start_service" = "Y" ]; then
         fi
     fi
     echo ""
+    
+    print_header "🚀 如何使用"
+    print_success "请在浏览器中打开以下地址："
+    echo ""
+    print_warning "  ➡️  http://localhost:8000"
+    echo ""
+    if [ -n "$server_ip" ]; then
+        print_info "或者使用服务器 IP 访问："
+        print_warning "  ➡️  http://${server_ip}:8000"
+        echo ""
+    fi
+    print_success "打开后即可使用语音转文字、文字转语音等功能！"
+    echo ""
+fi
+
+if [ "$start_service" != "y" ] && [ "$start_service" != "Y" ]; then
+    print_header "🚀 如何启动"
+    print_info "请执行以下命令启动服务："
+    echo "  cd $(pwd)"
+    echo "  $COMPOSE_CMD up -d --build"
+    echo ""
+    print_info "启动后在浏览器中打开："
+    print_warning "  ➡️  http://localhost:8000"
+    echo ""
 fi
 
 print_info "常用命令："

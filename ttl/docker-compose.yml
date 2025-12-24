@@ -8,4 +8,6 @@ services:
       - ./.env
     volumes:
       - ./data:/app/data
+      - ..:/repo
+      - ./backend:/app
     restart: unless-stopped

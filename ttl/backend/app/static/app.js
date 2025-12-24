@@ -1,5 +1,14 @@
+function getHeaders() {
+  const headers = {};
+  const apiKey = document.getElementById('apiKey')?.value;
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
 async function fetchJson(url) {
-  const r = await fetch(url);
+  const r = await fetch(url, { headers: getHeaders() });
   if (!r.ok) {
     let msg = await r.text();
     try {
@@ -56,7 +65,7 @@ document.getElementById('updateApp').addEventListener('click', async () => {
   btn.textContent = '⏳ 更新中...';
   
   try {
-    const r = await fetch('/api/update', { method: 'POST' });
+    const r = await fetch('/api/update', { method: 'POST', headers: getHeaders() });
     if (!r.ok) {
       const err = await r.text();
       throw new Error(err);
@@ -597,7 +606,7 @@ async function synthesizeOne(text, params, signal) {
   fd.append('volume', String(params.volume || 0));
   fd.append('pause_ms', String(params.pause_ms || 0));
 
-  const r = await fetch('/api/tts/synthesize', { method: 'POST', body: fd, signal });
+  const r = await fetch('/api/tts/synthesize', { method: 'POST', body: fd, signal, headers: getHeaders() });
   if (!r.ok) throw new Error(await r.text());
   return await r.blob();
 }
@@ -741,6 +750,15 @@ document.getElementById('btnReplaceApply').addEventListener('click', () => {
 
 (async function init() {
   try {
+    const apiKeyInput = document.getElementById('apiKey');
+    if (apiKeyInput) {
+      const savedKey = localStorage.getItem('tts_api_key');
+      if (savedKey) apiKeyInput.value = savedKey;
+      apiKeyInput.addEventListener('input', () => {
+        localStorage.setItem('tts_api_key', apiKeyInput.value);
+      });
+    }
+
     await refreshUsage();
     await initLanguagesAndVoices();
   } catch (e) {

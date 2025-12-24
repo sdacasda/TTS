@@ -82,7 +82,7 @@ def health() -> dict:
     return {"ok": True, "version": "2025-12-25-v2"}
 
 
-@app.get("/api/debug/env")
+@app.get("/api/debug/env", dependencies=[Depends(verify_api_key)])
 def debug_env() -> dict:
     """Debug endpoint to check environment"""
     return {
@@ -92,7 +92,7 @@ def debug_env() -> dict:
     }
 
 
-@app.post("/api/update")
+@app.post("/api/update", dependencies=[Depends(verify_api_key)])
 def update_app() -> dict:
     """Update application code online"""
     try:
@@ -156,19 +156,19 @@ def update_app() -> dict:
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
-@app.get("/api/usage/summary")
+@app.get("/api/usage/summary", dependencies=[Depends(verify_api_key)])
 async def usage_summary(month: str | None = None) -> dict:
     if not month:
         month = month_key(datetime.now(timezone.utc))
     return await get_usage_summary(month)
 
 
-@app.get("/api/usage/overview")
+@app.get("/api/usage/overview", dependencies=[Depends(verify_api_key)])
 async def usage_overview() -> dict:
     return await get_usage_overview()
 
 
-@app.get("/api/tts/voices")
+@app.get("/api/tts/voices", dependencies=[Depends(verify_api_key)])
 async def tts_voices(locale: str | None = None, neural_only: bool = True) -> dict:
     try:
         c = client_from_env()
@@ -193,7 +193,7 @@ async def tts_voices(locale: str | None = None, neural_only: bool = True) -> dic
     return {"voices": filtered}
 
 
-@app.post("/api/stt/recognize")
+@app.post("/api/stt/recognize", dependencies=[Depends(verify_api_key)])
 async def stt_recognize(
     audio: UploadFile = File(...),
     language: str = Form("zh-CN"),
@@ -214,7 +214,7 @@ async def stt_recognize(
     return result
 
 
-@app.post("/api/pronunciation/assess")
+@app.post("/api/pronunciation/assess", dependencies=[Depends(verify_api_key)])
 async def pronunciation_assess(
     audio: UploadFile = File(...),
     reference_text: str = Form(...),
@@ -240,7 +240,7 @@ async def pronunciation_assess(
     return result
 
 
-@app.post("/api/tts/synthesize")
+@app.post("/api/tts/synthesize", dependencies=[Depends(verify_api_key)])
 async def tts_synthesize(
     text: str = Form(...),
     voice: str = Form("zh-CN-XiaoxiaoNeural"),

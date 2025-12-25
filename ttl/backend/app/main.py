@@ -354,7 +354,14 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
         # If we can't determine language from voice, default to en-US for OpenAI mapped voices,
         # or zh-CN if it looks like a custom request that failed parsing
         lang = "en-US" if request.voice.lower() in openai_voice_map else "zh-CN"
-    
+
+    # Map gain (float, usually around 0-10) to Azure volume percentage (int, -100 to 100).
+    # Heuristic: 1.0 gain ~= +10% volume.
+    volume = int(request.gain * 10) if request.gain is not None else 0
+    # Clamp to safe limits (-100 to 100)
+    volume = max(-100, min(100, volume))
+
+    logger.info(f"OpenAI TTS: gain={request.gain}, mapped_volume={volume}")
     logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}")
     
     try:
@@ -369,7 +376,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
             style_degree=None,
             rate=rate,
             pitch=0,
-            volume=0,
+            volume=volume,
             pause_ms=0,
         )
     except Exception as e:

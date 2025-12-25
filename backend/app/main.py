@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .speech import client_from_env
-from . import db
+from . import db, usage
 
 load_dotenv()
 
@@ -54,8 +54,12 @@ async def verify_api_key(creds: Optional[HTTPAuthorizationCredentials] = Depends
 
 
 @app.on_event("startup")
-def _startup():
+async def _startup():
     _ensure_db()
+    try:
+        await usage.init_db()
+    except Exception:
+        pass
 
 
 @app.get("/api/health")
@@ -150,6 +154,7 @@ async def set_settings(request: Request, openai_key: Optional[str] = Form(None))
 
 
 @app.post("/api/tts", dependencies=[Depends(verify_api_key)])
+@app.post("/api/tts/synthesize", dependencies=[Depends(verify_api_key)])
 async def tts_synthesize(
     request: Request,
     text: Optional[str] = Form(None),
@@ -203,20 +208,28 @@ async def tts_synthesize(
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"TTS error: {e}")
+    try:
+        await usage.record_usage("tts_chars", len(text))
+    except Exception:
+        pass
     return Response(content=audio, media_type="audio/mpeg")
 
 
 @app.get("/api/usage/overview")
-def usage_overview():
-    limits = {"tts_chars": 500000}
-    data = {
-        "limits": limits,
-        "all_time": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
-        "month_key": datetime.utcnow().strftime("%Y-%m"),
-        "month": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
-        "today": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
-    }
-    return data
+async def usage_overview():
+    try:
+        await usage.init_db()
+        return await usage.get_usage_overview()
+    except Exception:
+        limits = {"tts_chars": 500000}
+        data = {
+            "limits": limits,
+            "all_time": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
+            "month_key": datetime.utcnow().strftime("%Y-%m"),
+            "month": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
+            "today": {"tts_chars": 0, "stt_seconds": 0, "pron_seconds": 0},
+        }
+        return data
 
 
 # Simple in-memory rate limiter

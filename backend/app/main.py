@@ -39,7 +39,7 @@ def _ensure_db():
     try:
         db.init_db()
     except Exception:
-        pass
+        logger.warning("Failed to initialize API key database", exc_info=True)
 
 
 async def verify_api_key(creds: Optional[HTTPAuthorizationCredentials] = Depends(security)):
@@ -190,7 +190,8 @@ async def tts_synthesize(
     auth = request.headers.get("authorization")
     if auth and auth.lower().startswith("bearer "):
         key = auth.split(None, 1)[1]
-    _rate_limit_check(key or (request.client.host if request.client else "anon"))
+    client_id = _client_identifier(request, key)
+    _rate_limit_check(client_id)
     try:
         client = client_from_env()
     except Exception as e:
@@ -237,8 +238,25 @@ async def usage_overview():
 
 
 # Simple in-memory rate limiter
-_RATE_STORE: dict = {}
-_RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MIN", "30"))
+    _RATE_STORE: dict = {}
+    _RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MIN", "30"))
+
+
+def _client_identifier(request: Request, token: Optional[str]) -> str:
+    if token:
+        return f"tk:{token}"
+    try:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            # Use the first IP in the comma-separated list
+            ip = forwarded.split(",")[0].strip()
+            if ip:
+                return f"ip:{ip}"
+    except Exception:
+        pass
+    if request.client and request.client.host:
+        return f"ip:{request.client.host}"
+    return "anon"
 
 
 def _rate_limit_check(key: str, limit: Optional[int] = None):

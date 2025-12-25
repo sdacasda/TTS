@@ -358,3 +358,18 @@ def _client_identifier(request: Request, token: Optional[str]) -> str:
         return f"tk:{token}"
     ip = identity.client_ip(request)
     return f"ip:{ip}"
+
+
+def openai_tts_speech(format_key: str) -> str:
+    """
+    Map simple format keys to Azure high-fidelity output formats.
+    """
+    format_mapping = {
+        "mp3": "audio-48khz-192kbitrate-mono-mp3",
+        "opus": "audio-24khz-48kbitrate-mono-opus",
+        "aac": "audio-24khz-96kbitrate-mono-mp3",
+        "flac": "audio-48khz-192kbitrate-mono-mp3",
+        "wav": "riff-24khz-16bit-mono-pcm",
+        "pcm": "raw-24khz-16bit-mono-pcm",
+    }
+    return format_mapping.get(format_key, format_key)

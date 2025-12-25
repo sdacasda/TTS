@@ -24,21 +24,24 @@ def _db_path() -> str:
     return db_path
 
 
-async def init_db() -> None:
-    async with aiosqlite.connect(_db_path()) as conn:
-        await conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS usage (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts_utc TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                amount INTEGER NOT NULL
-            )
-            """
+async def open_usage_db() -> aiosqlite.Connection:
+    return await aiosqlite.connect(_db_path())
+
+
+async def init_db(conn: aiosqlite.Connection) -> None:
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts_utc TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            amount INTEGER NOT NULL
         )
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts_utc)")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_kind ON usage(kind)")
-        await conn.commit()
+        """
+    )
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts_utc)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_kind ON usage(kind)")
+    await conn.commit()
 
 
 def limits_from_env() -> UsageLimits:
@@ -49,23 +52,22 @@ def limits_from_env() -> UsageLimits:
     )
 
 
-async def record_usage(kind: UsageKind, amount: int) -> None:
+async def record_usage(conn: aiosqlite.Connection, kind: UsageKind, amount: int) -> None:
     if amount <= 0:
         return
     ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    async with aiosqlite.connect(_db_path()) as conn:
-        await conn.execute(
-            "INSERT INTO usage(ts_utc, kind, amount) VALUES (?, ?, ?)",
-            (ts, kind, int(amount)),
-        )
-        await conn.commit()
+    await conn.execute(
+        "INSERT INTO usage(ts_utc, kind, amount) VALUES (?, ?, ?)",
+        (ts, kind, int(amount)),
+    )
+    await conn.commit()
 
 
 def month_key(dt: datetime) -> str:
     return dt.strftime("%Y-%m")
 
 
-async def get_monthly_totals(month: str) -> dict[str, int]:
+async def get_monthly_totals(conn: aiosqlite.Connection, month: str) -> dict[str, int]:
     start = f"{month}-01T00:00:00+00:00"
     y, m = month.split("-")
     y_i = int(y)
@@ -76,69 +78,66 @@ async def get_monthly_totals(month: str) -> dict[str, int]:
         end = f"{y_i}-{m_i + 1:02d}-01T00:00:00+00:00"
 
     totals: dict[str, int] = {"stt_seconds": 0, "tts_chars": 0, "pron_seconds": 0}
-    async with aiosqlite.connect(_db_path()) as conn:
-        async with conn.execute(
-            """
-            SELECT kind, COALESCE(SUM(amount), 0)
-            FROM usage
-            WHERE ts_utc >= ? AND ts_utc < ?
-            GROUP BY kind
-            """,
-            (start, end),
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with conn.execute(
+        """
+        SELECT kind, COALESCE(SUM(amount), 0)
+        FROM usage
+        WHERE ts_utc >= ? AND ts_utc < ?
+        GROUP BY kind
+        """,
+        (start, end),
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     for kind, total in rows:
         totals[str(kind)] = int(total)
     return totals
 
 
-async def _get_range_totals(start: str, end: str) -> dict[str, int]:
+async def _get_range_totals(conn: aiosqlite.Connection, start: str, end: str) -> dict[str, int]:
     totals: dict[str, int] = {"stt_seconds": 0, "tts_chars": 0, "pron_seconds": 0}
-    async with aiosqlite.connect(_db_path()) as conn:
-        async with conn.execute(
-            """
-            SELECT kind, COALESCE(SUM(amount), 0)
-            FROM usage
-            WHERE ts_utc >= ? AND ts_utc < ?
-            GROUP BY kind
-            """,
-            (start, end),
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with conn.execute(
+        """
+        SELECT kind, COALESCE(SUM(amount), 0)
+        FROM usage
+        WHERE ts_utc >= ? AND ts_utc < ?
+        GROUP BY kind
+        """,
+        (start, end),
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     for kind, total in rows:
         totals[str(kind)] = int(total)
     return totals
 
 
-async def get_today_totals(now_utc: datetime | None = None) -> dict[str, int]:
+async def get_today_totals(conn: aiosqlite.Connection, now_utc: datetime | None = None) -> dict[str, int]:
     if now_utc is None:
         now_utc = datetime.now(timezone.utc)
     start_dt = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     end_dt = start_dt + timedelta(days=1)
-    return await _get_range_totals(start_dt.isoformat(), end_dt.isoformat())
+    return await _get_range_totals(conn, start_dt.isoformat(), end_dt.isoformat())
 
 
-async def get_all_time_totals() -> dict[str, int]:
+async def get_all_time_totals(conn: aiosqlite.Connection) -> dict[str, int]:
     totals: dict[str, int] = {"stt_seconds": 0, "tts_chars": 0, "pron_seconds": 0}
-    async with aiosqlite.connect(_db_path()) as conn:
-        async with conn.execute(
-            """
-            SELECT kind, COALESCE(SUM(amount), 0)
-            FROM usage
-            GROUP BY kind
-            """
-        ) as cursor:
-            rows = await cursor.fetchall()
+    async with conn.execute(
+        """
+        SELECT kind, COALESCE(SUM(amount), 0)
+        FROM usage
+        GROUP BY kind
+        """
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     for kind, total in rows:
         totals[str(kind)] = int(total)
     return totals
 
 
-async def get_usage_summary(month: str) -> dict:
-    totals = await get_monthly_totals(month)
+async def get_usage_summary(conn: aiosqlite.Connection, month: str) -> dict:
+    totals = await get_monthly_totals(conn, month)
     limits = limits_from_env()
 
     stt_used = totals.get("stt_seconds", 0)
@@ -165,14 +164,14 @@ async def get_usage_summary(month: str) -> dict:
     }
 
 
-async def get_usage_overview() -> dict:
+async def get_usage_overview(conn: aiosqlite.Connection) -> dict:
     now = datetime.now(timezone.utc)
     month = month_key(now)
     limits = limits_from_env()
     return {
-        "today": await get_today_totals(now),
-        "month": await get_monthly_totals(month),
-        "all_time": await get_all_time_totals(),
+        "today": await get_today_totals(conn, now),
+        "month": await get_monthly_totals(conn, month),
+        "all_time": await get_all_time_totals(conn),
         "limits": {
             "stt_seconds": limits.stt_seconds_limit,
             "tts_chars": limits.tts_chars_limit,

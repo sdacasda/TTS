@@ -4,15 +4,16 @@ import base64
 import json
 import os
 import re
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
 
 class SpeechClient:
-    def __init__(self, key: str, region: str):
+    def __init__(self, key: str, region: str, http_client: Optional[httpx.AsyncClient] = None):
         self.key = (key or "").strip()
         self.region = region
+        self.http_client = http_client
 
     def _get_auth_headers(self) -> dict[str, str]:
         if not self.key:
@@ -43,10 +44,12 @@ class SpeechClient:
     async def list_voices(self) -> list[dict[str, Any]]:
         headers = self._tts_headers()
         headers["Accept"] = "application/json"
-        async with httpx.AsyncClient() as client:
-            r = await client.get(self._tts_voices_url(), headers=headers, timeout=60)
-            r.raise_for_status()
-            return r.json()
+        client = self.http_client or httpx.AsyncClient()
+        r = await client.get(self._tts_voices_url(), headers=headers, timeout=60)
+        r.raise_for_status()
+        if self.http_client is None:
+            await client.aclose()
+        return r.json()
 
     async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
         headers = self._get_auth_headers()
@@ -54,10 +57,12 @@ class SpeechClient:
             "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
             "Accept": "application/json",
         })
-        async with httpx.AsyncClient() as client:
-            r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
-            r.raise_for_status()
-            return r.json()
+        client = self.http_client or httpx.AsyncClient()
+        r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
+        r.raise_for_status()
+        if self.http_client is None:
+            await client.aclose()
+        return r.json()
 
     async def pronunciation_assessment(
         self,
@@ -82,10 +87,12 @@ class SpeechClient:
             "Accept": "application/json",
             "Pronunciation-Assessment": pa_b64,
         })
-        async with httpx.AsyncClient() as client:
-            r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
-            r.raise_for_status()
-            return r.json()
+        client = self.http_client or httpx.AsyncClient()
+        r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
+        r.raise_for_status()
+        if self.http_client is None:
+            await client.aclose()
+        return r.json()
 
     async def text_to_speech(
         self,
@@ -117,10 +124,12 @@ class SpeechClient:
         headers = self._tts_headers()
         headers["Content-Type"] = "application/ssml+xml"
         headers["X-Microsoft-OutputFormat"] = output_format
-        async with httpx.AsyncClient() as client:
-            r = await client.post(self._tts_url(), headers=headers, content=ssml.encode("utf-8"), timeout=60)
-            r.raise_for_status()
-            return r.content
+        client = self.http_client or httpx.AsyncClient()
+        r = await client.post(self._tts_url(), headers=headers, content=ssml.encode("utf-8"), timeout=60)
+        r.raise_for_status()
+        if self.http_client is None:
+            await client.aclose()
+        return r.content
 
 
 def _escape_xml(s: str) -> str:
@@ -213,9 +222,9 @@ def build_ssml(
     )
 
 
-def client_from_env() -> SpeechClient:
+def client_from_env(http_client: Optional[httpx.AsyncClient] = None) -> SpeechClient:
     key = os.getenv("SPEECH_KEY")
     region = os.getenv("SPEECH_REGION")
     if not key or not region:
         raise RuntimeError("Missing SPEECH_KEY or SPEECH_REGION")
-    return SpeechClient(key=key, region=region)
+    return SpeechClient(key=key, region=region, http_client=http_client)

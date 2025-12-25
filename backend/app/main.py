@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+
+import aiosqlite
+import httpx
 from fastapi import FastAPI, Depends, File, Form, HTTPException, Response, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -26,7 +30,31 @@ API_KEY_ADMIN = os.getenv("API_KEY")
 
 security = HTTPBearer(auto_error=False)
 
-app = FastAPI(docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    http_client = httpx.AsyncClient(timeout=60)
+    usage_conn = None
+    try:
+        _ensure_db()
+        usage_conn = await usage.open_usage_db()
+        await usage.init_db(usage_conn)
+        app.state.usage_db_healthy = True
+    except Exception:
+        app.state.usage_db_healthy = False
+        logger.exception("Failed to initialize resources during startup")
+    app.state.http_client = http_client
+    app.state.usage_conn = usage_conn
+    yield
+    try:
+        if usage_conn:
+            await usage_conn.close()
+    except Exception:
+        logger.warning("Failed to close usage DB connection", exc_info=True)
+    await http_client.aclose()
+
+
+app = FastAPI(docs_url=None, redoc_url=None, lifespan=lifespan)
 app.state.api_db_healthy = True
 app.state.usage_db_healthy = True
 
@@ -61,17 +89,6 @@ async def verify_api_key(creds: Optional[HTTPAuthorizationCredentials] = Depends
     return
 
 
-@app.on_event("startup")
-async def _startup():
-    _ensure_db()
-    try:
-        await usage.init_db()
-        app.state.usage_db_healthy = True
-    except Exception:
-        app.state.usage_db_healthy = False
-        logger.exception("Failed to initialize usage database")
-
-
 @app.get("/api/health")
 def health():
     status = {
@@ -87,7 +104,7 @@ def health():
 @app.get("/api/tts/voices")
 def tts_voices(neural_only: bool = False, lang: Optional[str] = None):
     try:
-        client = client_from_env()
+        client = client_from_env(app.state.http_client)
     except Exception:
         return {"voices": []}
     try:
@@ -122,7 +139,7 @@ async def stt_recognize(
     client_id = _client_identifier(request, key)
     await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
     try:
-        client = client_from_env()
+        client = client_from_env(app.state.http_client)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     try:
@@ -132,7 +149,8 @@ async def stt_recognize(
     duration = audio.wav_duration_seconds(wav_bytes)
     if duration:
         try:
-            await usage.record_usage("stt_seconds", math.ceil(duration))
+            if app.state.usage_conn:
+                await usage.record_usage(app.state.usage_conn, "stt_seconds", math.ceil(duration))
         except Exception:
             logger.warning("Failed to record STT usage", exc_info=True)
     return result
@@ -154,7 +172,7 @@ async def pronunciation_assess(
     client_id = _client_identifier(request, key)
     await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
     try:
-        client = client_from_env()
+        client = client_from_env(app.state.http_client)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     try:
@@ -168,7 +186,8 @@ async def pronunciation_assess(
     duration = audio.wav_duration_seconds(wav_bytes)
     if duration:
         try:
-            await usage.record_usage("pron_seconds", math.ceil(duration))
+            if app.state.usage_conn:
+                await usage.record_usage(app.state.usage_conn, "pron_seconds", math.ceil(duration))
         except Exception:
             logger.warning("Failed to record pronunciation usage", exc_info=True)
     return result
@@ -278,7 +297,7 @@ async def tts_synthesize(
     client_id = _client_identifier(request, key)
     await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
     try:
-        client = client_from_env()
+        client = client_from_env(app.state.http_client)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     try:
@@ -298,7 +317,8 @@ async def tts_synthesize(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"TTS error: {e}")
     try:
-        await usage.record_usage("tts_chars", len(text))
+        if app.state.usage_conn:
+            await usage.record_usage(app.state.usage_conn, "tts_chars", len(text))
     except Exception:
         logger.warning("Failed to record TTS usage", exc_info=True)
     return Response(content=audio, media_type="audio/mpeg")
@@ -312,9 +332,11 @@ def tts_synthesize_alias():
 @app.get("/api/usage/overview")
 async def usage_overview():
     try:
-        await usage.init_db()
+        if app.state.usage_conn is None:
+            raise RuntimeError("Usage DB unavailable")
+        await usage.init_db(app.state.usage_conn)
         app.state.usage_db_healthy = True
-        return await usage.get_usage_overview()
+        return await usage.get_usage_overview(app.state.usage_conn)
     except Exception:
         app.state.usage_db_healthy = False
         logger.warning("Falling back to static usage overview", exc_info=True)

@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Optional
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
+
+load_dotenv()
+
+API_KEYS_FILE = Path("/repo/ttl/api_keys.json")
+API_KEY_ADMIN = os.getenv("API_KEY")
+
+security = HTTPBearer(auto_error=False)
+
+app = FastAPI(docs_url=None, redoc_url=None)
+
+
+def _read_api_keys() -> list[dict]:
+    if not API_KEYS_FILE.exists():
+        return []
+    try:
+        return json.loads(API_KEYS_FILE.read_text(encoding="utf-8") or "[]")
+    except Exception:
+        return []
+
+
+def _write_api_keys(items: list[dict]):
+    API_KEYS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    API_KEYS_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
+
+
+async def verify_api_key(creds: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    if not API_KEY_ADMIN:
+        return
+    if not creds:
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = creds.credentials
+    if token == API_KEY_ADMIN:
+        return
+    for it in _read_api_keys():
+        if it.get("key") == token:
+            return
+    raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+
+@app.get("/api/apikeys", dependencies=[Depends(verify_api_key)])
+def list_keys():
+    items = _read_api_keys()
+    return {"keys": [{"id": it["id"], "created_at": it.get("created_at") } for it in items]}
+
+
+@app.post("/api/apikeys", dependencies=[Depends(verify_api_key)])
+def create_key():
+    new = {"id": __import__("uuid").uuid4().hex, "key": __import__("secrets").token_urlsafe(32), "created_at": __import__("datetime").datetime.utcnow().isoformat()}
+    items = _read_api_keys()
+    items.append(new)
+    _write_api_keys(items)
+    return JSONResponse({"id": new["id"], "key": new["key"]})
+
+
+@app.delete("/api/apikeys/{key_id}", dependencies=[Depends(verify_api_key)])
+def delete_key(key_id: str):
+    items = _read_api_keys()
+    new_items = [it for it in items if it.get("id") != key_id]
+    if len(new_items) == len(items):
+        raise HTTPException(status_code=404, detail="Key not found")
+    _write_api_keys(new_items)
+    return {"ok": True}

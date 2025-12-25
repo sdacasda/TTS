@@ -1,0 +1,4 @@
+ttl/.env
+*.pyc
+__pycache__/
+ttl/data/

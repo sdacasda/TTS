@@ -1,0 +1,14 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.12
+python-dotenv
+httpx==0.27.0
+aiosqlite==0.20.0
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.12
+python-dotenv
+httpx==0.27.0
+aiosqlite==0.20.0

@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Azure 语音门户</title>
+    <style>
+      :root {
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: rgba(255, 255, 255, 0.92);
+        --panel: rgba(250, 250, 249, 0.95);
+        --brand: #0ea5e9;
+        --shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+        --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.05);
+      }
+      body {
+        font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial;
+        margin: 0;
+        background: radial-gradient(1200px 700px at 15% 0%, #e0f2fe 0%, rgba(224, 242, 254, 0) 60%),
+          radial-gradient(1100px 700px at 90% 5%, #fef9c3 0%, rgba(254, 249, 195, 0) 55%),
+          #f8fafc;
+        color: #0f172a;
+      }
+      .wrap { padding: 18px; max-width: 1340px; margin: 0 auto 28px; box-sizing: border-box; }
+      .bar {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow-soft);
+        padding: 14px;
+      }
+      .barHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .brand { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+      .sub { color: var(--muted); font-size: 13px; }
+      .quotaBox { text-align: right; min-width: 210px; }
+      .quotaVal { font-weight: 700; color: #0ea5e9; }
+      .usageGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .metric {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: var(--shadow-soft);
+      }
+      .metric .label { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; text-transform: uppercase; }
+      .metric .value { font-size: 17px; font-weight: 700; margin: 6px 0 4px; }
+      .metric .meta { font-size: 12px; color: var(--muted); }
+
+      .layout { display: grid; grid-template-columns: 1fr 380px; gap: 14px; margin-top: 14px; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panelHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+      }
+      .panelHead .eyebrow { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+      .panelHead .title { font-size: 17px; font-weight: 700; }
+      .editorHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+        gap: 12px;
+      }
+      .editorHead .eyebrow { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+      .editorHead .title { font-size: 17px; font-weight: 700; }
+      .editor { padding: 14px; background: #fff; }
+      textarea {
+        width: 100%;
+        height: calc(100vh - 320px);
+        min-height: 420px;
+        resize: none;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        box-sizing: border-box;
+        font-size: 14px;
+        line-height: 1.6;
+        background: #f8fafc;
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        border-top: 1px solid var(--border);
+        background: #fff;
+        align-items: stretch;
+      }
+      button {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+        font-weight: 600;
+        color: #0f172a;
+        -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        touch-action: manipulation; /* 优化触摸响应 */
+      }
+      button:hover { background: #f8fafc; box-shadow: var(--shadow-soft); }
+      button:active { transform: translateY(1px); }
+      button:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+      button.primary { background: linear-gradient(120deg, #22d3ee, #0ea5e9); border-color: #0ea5e9; color: #fff; }
+      button.primary:hover { background: linear-gradient(120deg, #06b6d4, #0284c7); border-color: #0284c7; }
+      button.danger { background: #ef4444; border-color: #ef4444; color: #fff; box-shadow: none; }
+      button.danger:hover { background: #dc2626; border-color: #dc2626; }
+      button.ghost { background: #f8fafc; }
+      .pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+      }
+      .pill.slim { padding: 6px 10px; }
+      .switch { display: inline-flex; align-items: center; gap: 8px; user-select: none; font-size: 13px; }
+      .switch input { width: 16px; height: 16px; }
+
+      .toolbox { display: grid; gap: 8px; margin: 4px 0 6px; }
+      .toolbox .rowline { display: flex; flex-wrap: wrap; gap: 8px; }
+      .toolbox .switch { border: 1px solid var(--border); padding: 8px 10px; border-radius: 10px; background: #fff; }
+      .right { background: var(--panel); }
+      .right .section { padding: 14px; border-bottom: 1px solid var(--border); background: #fff; }
+      .right .sectionHead { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+      .right .title { font-weight: 700; font-size: 14px; }
+      .right .subtitle { color: var(--muted); font-size: 12px; }
+      .row { display:grid; grid-template-columns: 86px 1fr; gap: 10px; align-items:center; margin-bottom: 12px; }
+      .row label { font-size: 12px; color:#374151; font-weight: 600; }
+      input, select {
+        width: 100%;
+        padding: 9px 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-sizing: border-box;
+        background: #fff;
+        font-size: 13px;
+        -webkit-appearance: none; /* 移除 iOS 默认样式 */
+        -webkit-tap-highlight-color: transparent;
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: rgba(14, 165, 233, 0.8);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+      }
+      input[type=range] { width: 100%; }
+      .inline { display:flex; gap: 8px; }
+      .inline > * { flex: 1; }
+      .slider { display:flex; align-items:center; gap: 8px; }
+      .slider .val { width: 56px; text-align: right; color: var(--muted); font-size: 12px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      dialog { border: 1px solid var(--border); border-radius: 12px; padding: 0; box-shadow: 0 10px 25px rgba(0,0,0,.15); }
+      dialog .dlg { width: min(560px, 94vw); background: #fff; border-radius: 12px; overflow: hidden; }
+      dialog .dlgHead { padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); }
+      dialog .dlgBody { padding: 12px; }
+      dialog .dlgFoot { padding: 12px; border-top: 1px solid var(--border); display:flex; justify-content:flex-end; gap: 8px; }
+
+      details { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      details summary { cursor: pointer; font-weight: 700; font-size: 12px; color:#111827; }
+      details[open] summary { margin-bottom: 10px; }
+
+      /* 平板适配 */
+      @media (max-width: 1080px) {
+        .layout { grid-template-columns: 1fr; }
+        textarea { height: 46vh; min-height: 280px; }
+      }
+
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        .wrap { padding: 12px; }
+        .brand { font-size: 16px; }
+        .sub { font-size: 12px; }
+        
+        /* 配额显示优化 */
+        .barHead { flex-direction: column; align-items: stretch; }
+        .quotaBox { text-align: left; margin-top: 8px; min-width: auto; }
+        
+        /* 使用统计卡片 */
+        .usageGrid { grid-template-columns: 1fr; gap: 8px; }
+        .metric { padding: 10px; }
+        .metric .label { font-size: 11px; }
+        .metric .value { font-size: 15px; }
+        .metric .meta { font-size: 11px; }
+        
+        /* 编辑器区域 */
+        textarea { 
+          height: 35vh; 
+          min-height: 200px;
+          font-size: 16px; /* 防止 iOS 自动缩放 */
+          padding: 12px;
+        }
+        
+        /* 按钮组优化 */
+        .actions { 
+          flex-direction: column; 
+          gap: 8px; 
+          padding: 12px;
+        }
+        .actions button { 
+          width: 100%; 
+          padding: 12px; 
+          font-size: 15px;
+          min-height: 44px; /* 触摸友好尺寸 */
+        }
+        .actions .pill { 
+          width: 100%; 
+          padding: 12px;
+        }
+        
+        /* 表单控件 */
+        .row { 
+          grid-template-columns: 1fr; 
+          gap: 6px; 
+          margin-bottom: 14px;
+        }
+        .row label { 
+          font-size: 13px; 
+          margin-bottom: 4px;
+        }
+        .inline { 
+          flex-direction: column;
+        }
+        .inline button {
+          width: 100%;
+        }
+        input, select { 
+          padding: 12px; 
+          font-size: 16px; /* 防止 iOS 自动缩放 */
+          min-height: 44px;
+        }
+        button { 
+          padding: 12px 14px; 
+          font-size: 15px;
+          min-height: 44px;
+        }
+        
+        /* 工具栏 */
+        .toolbox .rowline { 
+          flex-direction: column; 
+        }
+        .toolbox .switch { 
+          padding: 12px; 
+          font-size: 14px;
+          min-height: 44px;
+        }
+        .toolbox button {
+          width: 100%;
+        }
+        
+        /* 滑块控件 */
+        .slider .val { 
+          width: 70px; 
+          font-size: 13px;
+        }
+        
+        /* 右侧面板 */
+        .right .section { padding: 12px; }
+        .right .title { font-size: 15px; }
+        .right .subtitle { font-size: 11px; }
+        
+        /* 提示文字 */
+        .muted { 
+          font-size: 11px; 
+          line-height: 1.5;
+        }
+        
+        /* 字符计数 */
+        .pill.slim { padding: 8px 12px; }
+        #charCount { font-size: 13px; }
+        
+        /* 面板头部 */
+        .panelHead { 
+          padding: 12px; 
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .panelHead .title { font-size: 16px; }
+        .panelHead .eyebrow { font-size: 10px; }
+        
+        .editorHead {
+          padding: 12px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+        .editorHead .title { font-size: 16px; }
+        .editorHead .eyebrow { font-size: 10px; }
+        .editorHead .pill { 
+          align-self: flex-start;
+        }
+        
+        /* 对话框 */
+        dialog .dlg { 
+          width: calc(100vw - 24px); 
+          max-width: 500px;
+        }
+        dialog .dlgHead { font-size: 16px; }
+        
+        /* 折叠面板 */
+        details { padding: 10px; }
+        details summary { font-size: 13px; }
+      }
+
+      /* 小屏手机优化 */
+      @media (max-width: 480px) {
+        .brand { font-size: 15px; }
+        .sub { font-size: 11px; }
+        .bar { padding: 10px; }
+        .panel { border-radius: 12px; }
+        
+        textarea { 
+          height: 30vh; 
+          min-height: 180px;
+        }
+        
+        /* 音频播放器 */
+        #ttsAudio { 
+          width: 100%; 
+          height: 40px;
+        }
+      }
+
+      /* 移动端横屏优化 */
+      @media (max-width: 920px) and (orientation: landscape) {
+        textarea {
+          height: 25vh;
+          min-height: 150px;
+        }
+        .bar { 
+          margin-bottom: 10px;
+        }
+        .usageGrid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      /* 滚动优化 */
+      * {
+        -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+      }
+      
+      /* 优化移动端选择框 */
+      @media (max-width: 768px) {
+        select {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 36px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="bar">
+        <div class="barHead">
+          <div>
+            <div class="brand">Azure 语音门户</div>
+            <div class="sub">统一管理语音合成、识别与发音评测</div>
+          </div>
+          <div class="quotaBox">
+            <div class="muted">配额提示</div>
+            <div class="quotaVal" id="quotaHint">字数：0/500000</div>
+          </div>
+        </div>
+        <div class="usageGrid" id="usageBar">
+          <div class="metric">
+            <div class="label">累计</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
+          <div class="metric">
+            <div class="label">本月</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
+          <div class="metric">
+            <div class="label">今日</div>
+            <div class="value">TTS 0 字符</div>
+            <div class="meta">STT 0 秒 · 发音 0 秒</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="panel">
+          <div class="editorHead">
+            <div>
+              <div class="eyebrow">文本输入</div>
+              <div class="title">准备要合成的文案</div>
+              <div class="muted">一次生成一条语音，改完文本再点击「生成」即可</div>
+            </div>
+            <div class="pill slim muted" id="charCount">0 字符</div>
+          </div>
+          <div class="editor">
+            <textarea id="ttsText">你好，我是 Azure Speech。</textarea>
+          </div>
+          <div class="actions">
+            <button class="primary" id="ttsBtn">生成</button>
+            <button id="ttsStop">停止</button>
+            <button id="btnDownload" disabled>下载音频</button>
+            <button id="btnDownloadSrt" disabled>下载字幕</button>
+            <div class="pill" style="flex:1;">
+              <audio id="ttsAudio" controls style="width:100%"></audio>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel right">
+          <div class="section">
+            <div class="sectionHead">
+              <div>
+                <div class="title">快捷操作</div>
+                <div class="subtitle">常用文本处理与偏好设置</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="updateApp" class="ghost" title="在线更新到最新版本">🔄 更新</button>
+                <button id="refreshUsage" class="ghost">刷新用量</button>
+              </div>
+            </div>
+
+            <div class="toolbox">
+              <div class="rowline">
+                <button id="btnFormat">整理</button>
+                <button id="btnReplace">替换</button>
+                <button class="danger" id="btnClear">清除</button>
+                <button id="btnGenSrt">生成字幕（SRT）</button>
+              </div>
+              <div class="rowline">
+                <label class="switch"><input type="checkbox" id="toggleBeep" /> 关闭提示音</label>
+                <label class="switch"><input type="checkbox" id="toggleAutoDownload" /> 开启自动下载</label>
+              </div>
+            </div>
+
+            <div class="row">
+              <label>API Key</label>
+              <input id="apiKey" type="password" placeholder="输入 API Key (可选)" />
+            </div>
+
+              <div class="row">
+                <label>OpenAI TTS Key</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input id="openaiKey" type="password" placeholder="输入 OpenAI TTS Key (用于插件)" style="flex:1" />
+                  <button id="saveOpenAIKey" class="pill">保存</button>
+                </div>
+              </div>
+
+            <div class="row" style="margin-top:10px;">
+              <label>插件 API Keys</label>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <button id="genApiKey" class="primary">生成 API Key</button>
+                  <div id="newApiKey" style="font-family:mono;color:#0f172a;word-break:break-all;"></div>
+                </div>
+                <div>
+                  <div class="muted">已生成的 Keys（可撤销）</div>
+                  <div id="apiKeysList" style="margin-top:6px;display:flex;flex-direction:column;gap:6px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <label>语言</label>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <input id="langSearch" placeholder="搜索语言（中文/代码）" />
+                <select id="ttsLang"></select>
+              </div>
+            </div>
+            <div class="row">
+              <label>语音</label>
+              <div class="inline">
+                <select id="ttsVoice"></select>
+                <button id="btnPreview">试听</button>
+              </div>
+            </div>
+            <div class="row">
+              <label>质量</label>
+              <select id="ttsFormat">
+                <option value="audio-16khz-32kbitrate-mono-mp3">mp3 16k 32kbps</option>
+                <option value="audio-24khz-48kbitrate-mono-mp3">mp3 24k 48kbps</option>
+                <option value="audio-24khz-160kbitrate-mono-mp3" selected>mp3 24k 160kbps</option>
+                <option value="riff-16khz-16bit-mono-pcm">wav 16k pcm</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>情绪</label>
+              <select id="ttsStyle"></select>
+            </div>
+            <div class="muted" id="styleHint" style="margin:-6px 0 10px; padding-left:78px;">选择“情绪”后这里会显示说明（不选则为默认语气）</div>
+            <div class="row">
+              <label>模仿</label>
+              <select id="ttsRole"></select>
+            </div>
+
+            <div class="row">
+              <label>句间停顿</label>
+              <input id="ttsPauseMs" type="number" min="0" max="5000" step="50" value="250" />
+            </div>
+            <div class="muted" style="margin:-6px 0 10px; padding-left:78px;">单位毫秒(ms)。会在句号/问号/感叹号/换行后自动插入停顿；建议 150~400。</div>
+
+            <details id="advPanel" style="margin-top:10px;">
+              <summary>高级参数（可选）</summary>
+              <div class="row">
+                <label>强度</label>
+                <div class="slider">
+                  <input id="ttsStyleDegree" type="range" min="0" max="200" value="0" />
+                  <div class="val" id="styleDegreeVal">0</div>
+                </div>
+              </div>
+              <div class="muted" style="margin:-6px 0 10px; padding-left:78px;">调节“情绪/风格”的强弱。0 表示不启用；建议 0.8~1.2（过高可能夸张）。</div>
+              <div class="row">
+                <label>语速</label>
+                <div class="slider">
+                  <input id="ttsRate" type="range" min="-100" max="200" value="0" />
+                  <div class="val" id="rateVal">0%</div>
+                </div>
+              </div>
+              <div class="muted" style="margin:-6px 0 10px; padding-left:78px;">说话速度。负值更慢、正值更快；建议 -10%~+20%。</div>
+              <div class="row">
+                <label>音调</label>
+                <div class="slider">
+                  <input id="ttsPitch" type="range" min="-50" max="50" value="0" />
+                  <div class="val" id="pitchVal">0%</div>
+                </div>
+              </div>
+              <div class="muted" style="margin:-6px 0 10px; padding-left:78px;">声音更低沉或更清亮；建议 -5%~+5%。</div>
+              <div class="row" style="margin-bottom:0;">
+                <label>音量</label>
+                <div class="slider">
+                  <input id="ttsVolume" type="range" min="-100" max="100" value="0" />
+                  <div class="val" id="volVal">0 dB</div>
+                </div>
+              </div>
+              <div class="muted" style="margin:6px 0 0; padding-left:78px;">整体响度（dB）。一般 0 dB 最自然；太大可能失真。这里显示为 dB，提交时仍使用内部百分比参数。</div>
+            </details>
+          </div>
+
+          <div class="section" style="border-bottom:0;">
+            <div class="title">当前结果</div>
+            <div class="muted">生成后可在左侧播放器播放；也可点击“下载音频/下载字幕”。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="replaceDlg">
+      <div class="dlg">
+        <div class="dlgHead">替换</div>
+        <div class="dlgBody">
+          <div class="row">
+            <label>查找</label>
+            <input id="findText" />
+          </div>
+          <div class="row" style="margin-bottom:0;">
+            <label>替换</label>
+            <input id="replaceText" />
+          </div>
+          <div class="muted" style="margin-top:10px;">仅做纯文本替换（区分大小写）</div>
+        </div>
+        <div class="dlgFoot">
+          <button id="btnReplaceCancel">关闭</button>
+          <button class="primary" id="btnReplaceApply">替换全部</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

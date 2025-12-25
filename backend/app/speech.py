@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import os
 import re
 from typing import Any
@@ -51,6 +53,34 @@ class SpeechClient:
         headers.update({
             "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
             "Accept": "application/json",
+        })
+        async with httpx.AsyncClient() as client:
+            r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)
+            r.raise_for_status()
+            return r.json()
+
+    async def pronunciation_assessment(
+        self,
+        wav_bytes: bytes,
+        language: str,
+        reference_text: str,
+        grading_system: str = "HundredMark",
+        granularity: str = "Phoneme",
+    ) -> dict[str, Any]:
+        pa = {
+            "ReferenceText": reference_text,
+            "GradingSystem": grading_system,
+            "Granularity": granularity,
+            "Dimension": "Comprehensive",
+            "EnableMiscue": True,
+        }
+        pa_b64 = base64.b64encode(json.dumps(pa).encode("utf-8")).decode("utf-8")
+
+        headers = self._get_auth_headers()
+        headers.update({
+            "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
+            "Accept": "application/json",
+            "Pronunciation-Assessment": pa_b64,
         })
         async with httpx.AsyncClient() as client:
             r = await client.post(self._stt_url(language), headers=headers, content=wav_bytes, timeout=60)

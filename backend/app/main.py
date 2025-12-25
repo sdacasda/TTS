@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import secrets
 import logging
@@ -8,14 +9,14 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, Form, HTTPException, Response, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, File, Form, HTTPException, Response, Request, UploadFile
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .speech import client_from_env
-from . import db, usage
+from . import audio, db, identity, rate_limit, usage
 
 load_dotenv()
 
@@ -26,6 +27,8 @@ API_KEY_ADMIN = os.getenv("API_KEY")
 security = HTTPBearer(auto_error=False)
 
 app = FastAPI(docs_url=None, redoc_url=None)
+app.state.api_db_healthy = True
+app.state.usage_db_healthy = True
 
 # Mount static files and templates
 static_dir = Path(__file__).parent / "static"
@@ -38,7 +41,9 @@ templates = Jinja2Templates(directory=str(templates_dir))
 def _ensure_db():
     try:
         db.init_db()
+        app.state.api_db_healthy = True
     except Exception:
+        app.state.api_db_healthy = False
         logger.warning("Failed to initialize API key database", exc_info=True)
 
 
@@ -61,13 +66,22 @@ async def _startup():
     _ensure_db()
     try:
         await usage.init_db()
+        app.state.usage_db_healthy = True
     except Exception:
+        app.state.usage_db_healthy = False
         logger.exception("Failed to initialize usage database")
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    status = {
+        "ok": app.state.api_db_healthy and app.state.usage_db_healthy,
+        "api_db": app.state.api_db_healthy,
+        "usage_db": app.state.usage_db_healthy,
+    }
+    if not status["ok"]:
+        return JSONResponse(status_code=503, content=status)
+    return status
 
 
 @app.get("/api/tts/voices")
@@ -86,6 +100,78 @@ def tts_voices(neural_only: bool = False, lang: Optional[str] = None):
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+def _validate_wav_file(upload: UploadFile):
+    if upload.content_type not in {"audio/wav", "audio/x-wav", "audio/wave"}:
+        raise HTTPException(status_code=400, detail="Only WAV audio is supported")
+
+
+@app.post("/api/stt/recognize", dependencies=[Depends(verify_api_key)])
+async def stt_recognize(
+    request: Request,
+    audio_file: UploadFile = File(...),
+    language: str = Form("zh-CN"),
+):
+    _validate_wav_file(audio_file)
+    wav_bytes = await audio_file.read()
+    key = None
+    auth = request.headers.get("authorization")
+    if auth and auth.lower().startswith("bearer "):
+        key = auth.split(None, 1)[1]
+    client_id = _client_identifier(request, key)
+    await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
+    try:
+        client = client_from_env()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    try:
+        result = await client.speech_to_text(wav_bytes=wav_bytes, language=language)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"STT error: {e}")
+    duration = audio.wav_duration_seconds(wav_bytes)
+    if duration:
+        try:
+            await usage.record_usage("stt_seconds", math.ceil(duration))
+        except Exception:
+            logger.warning("Failed to record STT usage", exc_info=True)
+    return result
+
+
+@app.post("/api/pronunciation/assess", dependencies=[Depends(verify_api_key)])
+async def pronunciation_assess(
+    request: Request,
+    audio_file: UploadFile = File(...),
+    reference_text: str = Form(...),
+    language: str = Form("en-US"),
+):
+    _validate_wav_file(audio_file)
+    wav_bytes = await audio_file.read()
+    key = None
+    auth = request.headers.get("authorization")
+    if auth and auth.lower().startswith("bearer "):
+        key = auth.split(None, 1)[1]
+    client_id = _client_identifier(request, key)
+    await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
+    try:
+        client = client_from_env()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    try:
+        result = await client.pronunciation_assessment(
+            wav_bytes=wav_bytes,
+            language=language,
+            reference_text=reference_text,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Pronunciation error: {e}")
+    duration = audio.wav_duration_seconds(wav_bytes)
+    if duration:
+        try:
+            await usage.record_usage("pron_seconds", math.ceil(duration))
+        except Exception:
+            logger.warning("Failed to record pronunciation usage", exc_info=True)
+    return result
 
 
 @app.get("/api/apikeys", dependencies=[Depends(verify_api_key)])
@@ -157,7 +243,6 @@ async def set_settings(request: Request, openai_key: Optional[str] = Form(None))
 
 
 @app.post("/api/tts", dependencies=[Depends(verify_api_key)])
-@app.post("/api/tts/synthesize", dependencies=[Depends(verify_api_key)])
 async def tts_synthesize(
     request: Request,
     text: Optional[str] = Form(None),
@@ -191,7 +276,7 @@ async def tts_synthesize(
     if auth and auth.lower().startswith("bearer "):
         key = auth.split(None, 1)[1]
     client_id = _client_identifier(request, key)
-    _rate_limit_check(client_id)
+    await rate_limit.enforce_rate_limit(client_id, rate_limit.tier_for_token(key))
     try:
         client = client_from_env()
     except Exception as e:
@@ -219,12 +304,19 @@ async def tts_synthesize(
     return Response(content=audio, media_type="audio/mpeg")
 
 
+@app.post("/api/tts/synthesize", dependencies=[Depends(verify_api_key)])
+def tts_synthesize_alias():
+    return RedirectResponse(url="/api/tts", status_code=307)
+
+
 @app.get("/api/usage/overview")
 async def usage_overview():
     try:
         await usage.init_db()
+        app.state.usage_db_healthy = True
         return await usage.get_usage_overview()
     except Exception:
+        app.state.usage_db_healthy = False
         logger.warning("Falling back to static usage overview", exc_info=True)
         limits = {"tts_chars": 500000}
         data = {
@@ -237,37 +329,8 @@ async def usage_overview():
         return data
 
 
-# Simple in-memory rate limiter
-    _RATE_STORE: dict = {}
-    _RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MIN", "30"))
-
-
 def _client_identifier(request: Request, token: Optional[str]) -> str:
     if token:
         return f"tk:{token}"
-    try:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            # Use the first IP in the comma-separated list
-            ip = forwarded.split(",")[0].strip()
-            if ip:
-                return f"ip:{ip}"
-    except Exception:
-        pass
-    if request.client and request.client.host:
-        return f"ip:{request.client.host}"
-    return "anon"
-
-
-def _rate_limit_check(key: str, limit: Optional[int] = None):
-    if limit is None:
-        limit = _RATE_LIMIT
-    now = int(datetime.utcnow().timestamp())
-    window = 60
-    k = f"rl:{key}"
-    entry = _RATE_STORE.get(k, [])
-    entry = [t for t in entry if t > now - window]
-    if len(entry) >= limit:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
-    entry.append(now)
-    _RATE_STORE[k] = entry
+    ip = identity.client_ip(request)
+    return f"ip:{ip}"

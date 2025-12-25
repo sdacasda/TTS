@@ -19,7 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .speech import client_from_env
+from .speech import SpeechClient, client_from_env
 from . import audio, db, identity, rate_limit, usage
 
 load_dotenv()
@@ -373,3 +373,44 @@ def openai_tts_speech(format_key: str) -> str:
         "pcm": "raw-24khz-16bit-mono-pcm",
     }
     return format_mapping.get(format_key, format_key)
+
+
+def _clamp(val: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, val))
+
+
+async def openai_tts_speech_request(
+    client: SpeechClient,
+    *,
+    text: str,
+    voice: str,
+    format_key: str,
+    lang: str = "en-US",
+    style: str | None = None,
+    role: str | None = None,
+    rate: int | None = None,
+    pitch: int | None = None,
+    pause_ms: int | None = None,
+    gain: float | None = None,
+) -> bytes:
+    output_format = openai_tts_speech(format_key)
+    volume = 0
+    if gain is not None:
+        try:
+            volume = int(gain * 10)
+        except Exception:
+            volume = 0
+        volume = _clamp(volume, -100, 100)
+    return await client.text_to_speech(
+        text=text,
+        voice=voice,
+        output_format=output_format,
+        lang=lang,
+        style=style,
+        role=role,
+        rate=rate,
+        pitch=pitch,
+        pause_ms=pause_ms,
+        volume=volume,
+        style_degree=None,
+    )

@@ -27,6 +27,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 API_KEY_ADMIN = os.getenv("API_KEY")
+if not API_KEY_ADMIN:
+    raise RuntimeError("API_KEY environment variable is required for authenticated access")
 
 security = HTTPBearer(auto_error=False)
 

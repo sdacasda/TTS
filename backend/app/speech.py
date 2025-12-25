@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import xml.etree.ElementTree as ET
 from typing import Any, Optional
 
 import httpx
@@ -176,6 +177,15 @@ def _ssml_inner_with_breaks(text: str, pause_ms: int | None) -> str:
     return "".join(out)
 
 
+def _append_inner(parent: ET.Element, inner_ssml: str) -> None:
+    # Wrap the string inside a temporary root so we can parse fragments
+    wrapper = ET.fromstring(f"<root>{inner_ssml}</root>")
+    parent.text = wrapper.text
+    for child in list(wrapper):
+        wrapper.remove(child)
+        parent.append(child)
+
+
 def build_ssml(
     *,
     text: str,
@@ -194,32 +204,46 @@ def build_ssml(
     volume = _clamp_int(volume, -100, 100)
     style_degree = _clamp_float(style_degree, 0.1, 2.0)
     inner = _ssml_inner_with_breaks(text, pause_ms)
-    prosody_attrs: list[str] = []
-    if rate is not None:
-        prosody_attrs.append(f"rate='{rate}%'")
-    if pitch is not None:
-        prosody_attrs.append(f"pitch='{pitch}%'")
-    if volume is not None:
-        prosody_attrs.append(f"volume='{volume}%'")
-    if prosody_attrs:
-        inner = f"<prosody {' '.join(prosody_attrs)}>{inner}</prosody>"
-    if style or role:
-        attrs: list[str] = []
-        if style:
-            attrs.append(f"style='{_escape_xml(style)}'")
-        if style and style_degree is not None:
-            attrs.append(f"styledegree='{style_degree:.2f}'")
-        if role:
-            attrs.append(f"role='{_escape_xml(role)}'")
-        inner = f"<mstts:express-as {' '.join(attrs)}>{inner}</mstts:express-as>"
-    return (
-        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
-        "xmlns:mstts='https://www.w3.org/2001/mstts' "
-        f"xml:lang='{_escape_xml(lang)}'>"
-        f"<voice name='{_escape_xml(voice)}'>"
-        f"{inner}"
-        "</voice></speak>"
+
+    ET.register_namespace("", "http://www.w3.org/2001/10/synthesis")
+    ET.register_namespace("mstts", "https://www.w3.org/2001/mstts")
+    speak = ET.Element(
+        "speak",
+        {
+            "version": "1.0",
+            "xmlns": "http://www.w3.org/2001/10/synthesis",
+            "xmlns:mstts": "https://www.w3.org/2001/mstts",
+            "xml:lang": lang,
+        },
     )
+    voice_el = ET.SubElement(speak, "voice", {"name": voice})
+
+    target_parent = voice_el
+    if style or role:
+        attrs: dict[str, str] = {}
+        if style:
+            attrs["style"] = style
+        if style and style_degree is not None:
+            attrs["styledegree"] = f"{style_degree:.2f}"
+        if role:
+            attrs["role"] = role
+        target_parent = ET.SubElement(voice_el, "{https://www.w3.org/2001/mstts}express-as", attrs)
+
+    prosody_el = None
+    prosody_attrs: dict[str, str] = {}
+    if rate is not None:
+        prosody_attrs["rate"] = f"{rate}%"
+    if pitch is not None:
+        prosody_attrs["pitch"] = f"{pitch}%"
+    if volume is not None:
+        prosody_attrs["volume"] = f"{volume}%"
+    if prosody_attrs:
+        prosody_el = ET.SubElement(target_parent, "prosody", prosody_attrs)
+        _append_inner(prosody_el, inner)
+    else:
+        _append_inner(target_parent, inner)
+
+    return ET.tostring(speak, encoding="utf-8").decode("utf-8")
 
 
 def client_from_env(http_client: Optional[httpx.AsyncClient] = None) -> SpeechClient:

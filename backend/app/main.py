@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -17,6 +18,8 @@ from .speech import client_from_env
 from . import db, usage
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 API_KEY_ADMIN = os.getenv("API_KEY")
 
@@ -59,7 +62,7 @@ async def _startup():
     try:
         await usage.init_db()
     except Exception:
-        pass
+        logger.exception("Failed to initialize usage database")
 
 
 @app.get("/api/health")
@@ -211,7 +214,7 @@ async def tts_synthesize(
     try:
         await usage.record_usage("tts_chars", len(text))
     except Exception:
-        pass
+        logger.warning("Failed to record TTS usage", exc_info=True)
     return Response(content=audio, media_type="audio/mpeg")
 
 
@@ -221,6 +224,7 @@ async def usage_overview():
         await usage.init_db()
         return await usage.get_usage_overview()
     except Exception:
+        logger.warning("Falling back to static usage overview", exc_info=True)
         limits = {"tts_chars": 500000}
         data = {
             "limits": limits,

@@ -360,10 +360,15 @@ def _client_identifier(request: Request, token: Optional[str]) -> str:
     return f"ip:{ip}"
 
 
-def openai_tts_speech(format_key: str) -> str:
+def openai_tts_speech(format_key: str, input_text: Optional[str] = None) -> str:
     """
     Map simple format keys to Azure high-fidelity output formats.
     """
+    try:
+        preview = (input_text or "")[:50]
+        logger.info("OpenAI input preview: %s", preview)
+    except Exception:
+        logger.debug("Failed to log OpenAI input preview", exc_info=True)
     format_mapping = {
         "mp3": "audio-48khz-192kbitrate-mono-mp3",
         "opus": "audio-24khz-48kbitrate-mono-opus",
@@ -393,7 +398,7 @@ async def openai_tts_speech_request(
     pause_ms: int | None = None,
     gain: float | None = None,
 ) -> bytes:
-    output_format = openai_tts_speech(format_key)
+    output_format = openai_tts_speech(format_key, input_text=text)
     volume = 0
     if gain is not None:
         try:

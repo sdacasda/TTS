@@ -179,14 +179,20 @@
   },
   "active": "2f50cb114311450c",
   "lastOpenFiles": [
-    "ttl/backend/app/static/favicon.ico",
-    "ttl/check-config.sh",
-    "ttl/quick-install.sh",
+    "第三方项目/astrbot_plugin_tts_emotion_router/data/data_v3.db",
+    "第三方项目/astrbot_plugin_tts_emotion_router/data/cmd_config.json",
+    "第三方项目/astrbot_plugin_tts_emotion_router/data",
+    "ttl/backend/app/templates/openai_playground.html",
+    "第三方项目/astrbot_plugin_tts_emotion_router/README.md",
+    "第三方项目/astrbot_plugin_tts_emotion_router/utils/extract.py",
+    "第三方项目/astrbot_plugin_tts_emotion_router/utils/audio.py",
+    "第三方项目/astrbot_plugin_tts_emotion_router/utils",
+    "第三方项目/astrbot_plugin_tts_emotion_router/tts/provider_siliconflow.py",
+    "第三方项目/astrbot_plugin_tts_emotion_router/tts",
+    "第三方项目/astrbot_plugin_tts_emotion_router/emotion/infer.py",
+    "第三方项目/astrbot_plugin_tts_emotion_router/emotion/classifier.py",
+    "未命名.canvas",
     "README.md",
-    "ttl/README.md",
-    "ttl/setup.sh",
-    "ttl/setup.ps1",
-    "ttl/install.sh",
-    "ttl/install.ps1"
+    "ttl/README.md"
   ]
 }

@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from pydantic import BaseModel
 
+from .emotion import classify, EMOTION_STYLE_MAP
 from .speech import client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
 
@@ -355,6 +356,10 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
         # or zh-CN if it looks like a custom request that failed parsing
         lang = "en-US" if request.voice.lower() in openai_voice_map else "zh-CN"
     
+    mood = classify(request.input)
+    azure_style = EMOTION_STYLE_MAP.get(mood, "chat")
+    logger.info(f"Emotion analysis: {mood} -> {azure_style}")
+
     logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}")
     
     try:
@@ -364,7 +369,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
             voice=voice,
             output_format=output_format,
             lang=lang,
-            style=None,
+            style=azure_style,
             role=None,
             style_degree=None,
             rate=rate,

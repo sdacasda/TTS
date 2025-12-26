@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenAI TTS Playground</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-light: #1f2937;
+      --border: #1f2937;
+      --accent: #22c55e;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+      background: radial-gradient(900px 700px at 10% 10%, #1e293b, rgba(30, 41, 59, 0)), var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    h1 { margin: 0 0 6px; font-size: 20px; }
+    p.sub { margin: 0 0 14px; color: var(--muted); }
+    label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
+    select, input, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-light);
+      color: var(--text);
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .sliderVal { color: var(--muted); font-size: 12px; }
+    button {
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #052e16;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.05s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+    }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    .audioBox {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--panel-light);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    audio { width: 100%; }
+    .inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .error { color: var(--danger); font-size: 13px; margin-top: 6px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>OpenAI TTS Playground</h1>
+      <p class="sub">调用 /v1/audio/speech，直接体验 alloy / nova / shimmer 等语音。</p>
+
+      <div class="row">
+        <div class="field">
+          <label for="voice">Voice</label>
+          <select id="voice">
+            <option value="alloy">alloy</option>
+            <option value="echo">echo</option>
+            <option value="fable">fable</option>
+            <option value="onyx">onyx</option>
+            <option value="nova">nova</option>
+            <option value="shimmer">shimmer</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="format">Response Format</label>
+          <select id="format">
+            <option value="mp3">mp3</option>
+            <option value="wav">wav</option>
+            <option value="pcm">pcm</option>
+            <option value="opus">opus</option>
+            <option value="flac">flac</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="speed">Speed <span class="sliderVal" id="speedVal">1.00</span></label>
+          <input type="range" id="speed" min="0.25" max="4.0" step="0.05" value="1.0" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom: 4px;">
+        <div class="field">
+          <label for="apiKey">API Key (可选，Bearer)</label>
+          <input id="apiKey" type="password" placeholder="留空则不带鉴权头" />
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom: 14px;">
+        <label for="input">Input</label>
+        <textarea id="input" placeholder="输入需要合成的文本">你好，这是一个 OpenAI 兼容 TTS 测试。</textarea>
+      </div>
+
+      <div class="inline">
+        <button id="runBtn">合成并播放</button>
+        <button class="ghost" id="clearBtn">清空</button>
+        <div class="muted" id="status"></div>
+      </div>
+      <div class="error" id="errorBox"></div>
+
+      <div class="audioBox">
+        <div class="muted">Audio</div>
+        <audio id="player" controls></audio>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const speed = document.getElementById('speed');
+    const speedVal = document.getElementById('speedVal');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusEl = document.getElementById('status');
+    const errEl = document.getElementById('errorBox');
+    const player = document.getElementById('player');
+
+    function updateSpeedLabel() {
+      speedVal.textContent = Number(speed.value).toFixed(2);
+    }
+    speed.addEventListener('input', updateSpeedLabel);
+    updateSpeedLabel();
+
+    clearBtn.addEventListener('click', () => {
+      document.getElementById('input').value = '';
+    });
+
+    runBtn.addEventListener('click', async () => {
+      const text = document.getElementById('input').value.trim();
+      if (!text) {
+        errEl.textContent = '请输入合成文本';
+        return;
+      }
+      errEl.textContent = '';
+      statusEl.textContent = '请求中...';
+      runBtn.disabled = true;
+
+      try {
+        const body = {
+          model: 'gpt-4o-mini-tts', // 任意占位模型名，后端仅映射 voice
+          input: text,
+          voice: document.getElementById('voice').value,
+          response_format: document.getElementById('format').value,
+          speed: Number(document.getElementById('speed').value),
+        };
+
+        const headers = { 'Content-Type': 'application/json' };
+        const apiKey = document.getElementById('apiKey').value.trim();
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const resp = await fetch('/v1/audio/speech', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        });
+
+        if (!resp.ok) {
+          const msg = await resp.text();
+          throw new Error(msg || `HTTP ${resp.status}`);
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        player.src = url;
+        player.play().catch(() => {});
+        statusEl.textContent = '合成成功';
+      } catch (e) {
+        errEl.textContent = e.message || '请求失败';
+        statusEl.textContent = '';
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

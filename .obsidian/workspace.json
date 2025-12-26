@@ -179,8 +179,8 @@
   },
   "active": "662d78a927febc3b",
   "lastOpenFiles": [
-    "ttl/backend/app/usage.py",
     "ttl/backend/app/speech.py",
+    "ttl/backend/app/usage.py",
     "未命名.canvas",
     "第三方项目/astrbot_plugin_tts_emotion_router/data/data_v3.db",
     "第三方项目/astrbot_plugin_tts_emotion_router/data/cmd_config.json",

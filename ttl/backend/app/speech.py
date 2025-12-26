@@ -4,7 +4,7 @@ import base64
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 import httpx
@@ -17,8 +17,8 @@ class SpeechClient:
         self._token: Optional[str] = None
         self._token_exp: Optional[datetime] = None
 
+    # ---------------- Endpoint helpers ----------------
     def _tts_base(self) -> str:
-        # 允许通过环境变量覆盖基础域名（例如 Foundry 项目可能需要 api.cognitive.microsoft.com）
         override = os.getenv("SPEECH_TTS_ENDPOINT_BASE", "").strip()
         if override:
             return override.rstrip("/")
@@ -31,14 +31,30 @@ class SpeechClient:
         return f"https://{self.region}.stt.speech.microsoft.com"
 
     def _api_base(self) -> str:
-        # Cognitive Services 通用域（部分订阅密钥/Foundry 项目可能要求）
+        # 通用域名，用于换取 token 或回退
         return f"https://{self.region}.api.cognitive.microsoft.com"
 
+    def _stt_url(self, language: str, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._stt_base()
+        return (
+            f"{base}/speech/recognition/conversation/cognitiveservices/v1"
+            f"?language={language}"
+        )
+
+    def _tts_url(self, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._tts_base()
+        return f"{base}/cognitiveservices/v1"
+
+    def _tts_voices_url(self, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._tts_base()
+        return f"{base}/cognitiveservices/voices/list"
+
+    # ---------------- Auth helpers ----------------
     async def _fetch_token(self) -> str:
-        # 使用订阅密钥换取 bearer token
         now = datetime.now(timezone.utc)
         if self._token and self._token_exp and self._token_exp > now:
             return self._token
+
         url = f"{self._api_base()}/sts/v1.0/issueToken"
         headers = {
             "Ocp-Apim-Subscription-Key": self.key,
@@ -49,7 +65,7 @@ class SpeechClient:
             r.raise_for_status()
             token = r.text.strip()
 
-        # 解析 exp 以便缓存，失败则设置 8 分钟
+        # 解析 exp 以缓存；失败则默认 8 分钟
         exp_dt: Optional[datetime] = None
         try:
             parts = token.split(".")
@@ -69,41 +85,71 @@ class SpeechClient:
         self._token_exp = exp_dt
         return token
 
-    def _stt_url(self, language: str, *, use_api_base: bool = False) -> str:
-        base = self._api_base() if use_api_base else self._stt_base()
-        return (
-            f"{base}/speech/recognition/conversation/cognitiveservices/v1"
-            f"?language={language}"
-        )
+    async def _bearer_headers(self) -> dict[str, str]:
+        token = await self._fetch_token()
+        return {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "speech-portal",
+        }
 
-    def _tts_url(self, *, use_api_base: bool = False) -> str:
-        base = self._api_base() if use_api_base else self._tts_base()
-        return f"{base}/cognitiveservices/v1"
-
-    def _tts_voices_url(self, *, use_api_base: bool = False) -> str:
-        base = self._api_base() if use_api_base else self._tts_base()
-        return f"{base}/cognitiveservices/voices/list"
-
-    def _tts_headers(self) -> dict[str, str]:
-        headers = {}
-        headers["User-Agent"] = "speech-portal"
-        return headers
-
+    # ---------------- Voices ----------------
     @staticmethod
     def _fallback_voices() -> list[dict[str, Any]]:
-        # 最小可用的静态语音列表，避免上游失败时前端完全不可用
         return [
-            {"ShortName": "zh-CN-XiaoxiaoNeural", "Locale": "zh-CN", "Gender": "Female"},
-            {"ShortName": "en-US-JennyNeural", "Locale": "en-US", "Gender": "Female"},
-            {"ShortName": "en-US-GuyNeural", "Locale": "en-US", "Gender": "Male"},
-            {"ShortName": "en-US-EmmaNeural", "Locale": "en-US", "Gender": "Female"},
-            {"ShortName": "en-US-AndrewNeural", "Locale": "en-US", "Gender": "Male"},
-            {"ShortName": "en-GB-SoniaNeural", "Locale": "en-GB", "Gender": "Female"},
+            {
+                "ShortName": "zh-CN-XiaoxiaoNeural",
+                "Locale": "zh-CN",
+                "Gender": "Female",
+                "VoiceType": "Neural",
+                "DisplayName": "Xiaoxiao",
+                "LocalName": "晓晓",
+            },
+            {
+                "ShortName": "en-US-JennyNeural",
+                "Locale": "en-US",
+                "Gender": "Female",
+                "VoiceType": "Neural",
+                "DisplayName": "Jenny",
+                "LocalName": "Jenny",
+            },
+            {
+                "ShortName": "en-US-GuyNeural",
+                "Locale": "en-US",
+                "Gender": "Male",
+                "VoiceType": "Neural",
+                "DisplayName": "Guy",
+                "LocalName": "Guy",
+            },
+            {
+                "ShortName": "en-US-EmmaNeural",
+                "Locale": "en-US",
+                "Gender": "Female",
+                "VoiceType": "Neural",
+                "DisplayName": "Emma",
+                "LocalName": "Emma",
+            },
+            {
+                "ShortName": "en-US-AndrewNeural",
+                "Locale": "en-US",
+                "Gender": "Male",
+                "VoiceType": "Neural",
+                "DisplayName": "Andrew",
+                "LocalName": "Andrew",
+            },
+            {
+                "ShortName": "en-GB-SoniaNeural",
+                "Locale": "en-GB",
+                "Gender": "Female",
+                "VoiceType": "Neural",
+                "DisplayName": "Sonia",
+                "LocalName": "Sonia",
+            },
         ]
 
     async def list_voices(self) -> list[dict[str, Any]]:
-        headers = self._tts_headers()
+        headers = await self._bearer_headers()
         headers["Accept"] = "application/json"
+
         async def _fetch(use_api_base: bool) -> list[dict[str, Any]]:
             async with httpx.AsyncClient() as client:
                 r = await client.get(
@@ -117,44 +163,35 @@ class SpeechClient:
                 raise RuntimeError("Unexpected voices list response")
             return data
 
-        # 先尝试标准 tts 域名，若 401/403 再尝试 api.cognitive 域名（适配部分长密钥/Foundry 项目）
+        voices: list[dict[str, Any]] = []
         try:
-            return await _fetch(use_api_base=False)
+            voices = await _fetch(use_api_base=False)
         except httpx.HTTPStatusError as e:
             if e.response.status_code in (401, 403):
                 try:
-                    return await _fetch(use_api_base=True)
+                    voices = await _fetch(use_api_base=True)
                 except Exception:
-                    pass
-            status_code = e.response.status_code
-            try:
-                error_text = (e.response.text or "")[:200].replace("\n", " ")
-            except Exception:
-                error_text = "unable to read response text"
-            raise RuntimeError(f"Azure API HTTP {status_code}: {error_text}")
-        except httpx.RequestError as e:
-            try:
-                error_msg = str(e)
-            except Exception:
-                error_msg = "request error"
-            raise RuntimeError(f"Network error: {error_msg}")
-        # 若上游返回空列表，提供静态兜底，保证前端可用
-        try:
-            voices = await _fetch(use_api_base=False)
+                    voices = []
+            else:
+                msg = (e.response.text or "")[:200].replace("\n", " ")
+                raise RuntimeError(f"Azure API HTTP {e.response.status_code}: {msg}")
         except Exception:
             voices = []
+
         if not voices:
             return self._fallback_voices()
         return voices
 
+    # ---------------- STT ----------------
     async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
-        headers = self._get_auth_headers()
+        headers = await self._bearer_headers()
         headers.update(
             {
                 "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
                 "Accept": "application/json",
             }
         )
+
         async def _post(use_api_base: bool) -> dict[str, Any]:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
@@ -170,12 +207,10 @@ class SpeechClient:
             return await _post(use_api_base=False)
         except httpx.HTTPStatusError as e:
             if e.response.status_code in (401, 403):
-                try:
-                    return await _post(use_api_base=True)
-                except Exception:
-                    pass
+                return await _post(use_api_base=True)
             raise
 
+    # ---------------- Pronunciation ----------------
     async def pronunciation_assessment(
         self,
         wav_bytes: bytes,
@@ -193,7 +228,7 @@ class SpeechClient:
         }
         pa_b64 = base64.b64encode(json.dumps(pa).encode("utf-8")).decode("utf-8")
 
-        headers = self._get_auth_headers()
+        headers = await self._bearer_headers()
         headers.update(
             {
                 "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
@@ -201,6 +236,7 @@ class SpeechClient:
                 "Pronunciation-Assessment": pa_b64,
             }
         )
+
         async def _post(use_api_base: bool) -> dict[str, Any]:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
@@ -216,12 +252,10 @@ class SpeechClient:
             return await _post(use_api_base=False)
         except httpx.HTTPStatusError as e:
             if e.response.status_code in (401, 403):
-                try:
-                    return await _post(use_api_base=True)
-                except Exception:
-                    pass
+                return await _post(use_api_base=True)
             raise
 
+    # ---------------- TTS ----------------
     async def text_to_speech(
         self,
         text: str,
@@ -250,9 +284,10 @@ class SpeechClient:
             pause_ms=pause_ms,
         )
 
-        headers = self._tts_headers()
+        headers = await self._bearer_headers()
         headers["Content-Type"] = "application/ssml+xml"
         headers["X-Microsoft-OutputFormat"] = output_format
+
         async def _post(use_api_base: bool) -> bytes:
             async with httpx.AsyncClient() as client:
                 r = await client.post(
@@ -268,13 +303,11 @@ class SpeechClient:
             return await _post(use_api_base=False)
         except httpx.HTTPStatusError as e:
             if e.response.status_code in (401, 403):
-                try:
-                    return await _post(use_api_base=True)
-                except Exception:
-                    pass
+                return await _post(use_api_base=True)
             raise
 
 
+# ---------------- SSML helpers ----------------
 def _escape_xml(s: str) -> str:
     return (
         s.replace("&", "&amp;")

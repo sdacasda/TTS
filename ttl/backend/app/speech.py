@@ -15,9 +15,25 @@ class SpeechClient:
         self.region = region.strip()
 
     def _get_auth_headers(self) -> dict[str, str]:
+        # 允许通过环境变量强制鉴权模式：subscription / bearer / both
+        mode = os.getenv("SPEECH_AUTH_MODE", "").strip().lower()
+        if mode == "subscription":
+            return {"Ocp-Apim-Subscription-Key": self.key}
+        if mode == "bearer":
+            return {"Authorization": f"Bearer {self.key}"}
+        if mode == "both":
+            return {
+                "Authorization": f"Bearer {self.key}",
+                "Ocp-Apim-Subscription-Key": self.key,
+            }
+
+        # 默认策略：32 位走订阅头；否则同时带上 Bearer 与订阅头，兼容 Foundry/长密钥
         if len(self.key) == 32:
             return {"Ocp-Apim-Subscription-Key": self.key}
-        return {"Authorization": f"Bearer {self.key}"}
+        return {
+            "Authorization": f"Bearer {self.key}",
+            "Ocp-Apim-Subscription-Key": self.key,
+        }
 
     def _tts_base(self) -> str:
         # 允许通过环境变量覆盖基础域名（例如 Foundry 项目可能需要 api.cognitive.microsoft.com）

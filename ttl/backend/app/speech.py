@@ -19,17 +19,37 @@ class SpeechClient:
             return {"Ocp-Apim-Subscription-Key": self.key}
         return {"Authorization": f"Bearer {self.key}"}
 
-    def _stt_url(self, language: str) -> str:
+    def _tts_base(self) -> str:
+        # 允许通过环境变量覆盖基础域名（例如 Foundry 项目可能需要 api.cognitive.microsoft.com）
+        override = os.getenv("SPEECH_TTS_ENDPOINT_BASE", "").strip()
+        if override:
+            return override.rstrip("/")
+        return f"https://{self.region}.tts.speech.microsoft.com"
+
+    def _stt_base(self) -> str:
+        override = os.getenv("SPEECH_STT_ENDPOINT_BASE", "").strip()
+        if override:
+            return override.rstrip("/")
+        return f"https://{self.region}.stt.speech.microsoft.com"
+
+    def _api_base(self) -> str:
+        # Cognitive Services 通用域（部分订阅密钥/Foundry 项目可能要求）
+        return f"https://{self.region}.api.cognitive.microsoft.com"
+
+    def _stt_url(self, language: str, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._stt_base()
         return (
-            f"https://{self.region}.stt.speech.microsoft.com/speech/recognition/"
-            f"conversation/cognitiveservices/v1?language={language}"
+            f"{base}/speech/recognition/conversation/cognitiveservices/v1"
+            f"?language={language}"
         )
 
-    def _tts_url(self) -> str:
-        return f"https://{self.region}.tts.speech.microsoft.com/cognitiveservices/v1"
+    def _tts_url(self, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._tts_base()
+        return f"{base}/cognitiveservices/v1"
 
-    def _tts_voices_url(self) -> str:
-        return f"https://{self.region}.tts.speech.microsoft.com/cognitiveservices/voices/list"
+    def _tts_voices_url(self, *, use_api_base: bool = False) -> str:
+        base = self._api_base() if use_api_base else self._tts_base()
+        return f"{base}/cognitiveservices/voices/list"
 
     def _tts_headers(self) -> dict[str, str]:
         headers = self._get_auth_headers()
@@ -39,17 +59,29 @@ class SpeechClient:
     async def list_voices(self) -> list[dict[str, Any]]:
         headers = self._tts_headers()
         headers["Accept"] = "application/json"
-        try:
+        async def _fetch(use_api_base: bool) -> list[dict[str, Any]]:
             async with httpx.AsyncClient() as client:
-                r = await client.get(self._tts_voices_url(), headers=headers, timeout=60)
+                r = await client.get(
+                    self._tts_voices_url(use_api_base=use_api_base),
+                    headers=headers,
+                    timeout=60,
+                )
                 r.raise_for_status()
                 data = r.json()
             if not isinstance(data, list):
                 raise RuntimeError("Unexpected voices list response")
             return data
+
+        # 先尝试标准 tts 域名，若 401/403 再尝试 api.cognitive 域名（适配部分长密钥/Foundry 项目）
+        try:
+            return await _fetch(use_api_base=False)
         except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                try:
+                    return await _fetch(use_api_base=True)
+                except Exception:
+                    pass
             status_code = e.response.status_code
-            # 避免编码问题，直接截断文本
             try:
                 error_text = (e.response.text or "")[:200].replace("\n", " ")
             except Exception:
@@ -70,15 +102,26 @@ class SpeechClient:
                 "Accept": "application/json",
             }
         )
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                self._stt_url(language),
-                headers=headers,
-                content=wav_bytes,
-                timeout=60,
-            )
-            r.raise_for_status()
-            return r.json()
+        async def _post(use_api_base: bool) -> dict[str, Any]:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    self._stt_url(language, use_api_base=use_api_base),
+                    headers=headers,
+                    content=wav_bytes,
+                    timeout=60,
+                )
+                r.raise_for_status()
+                return r.json()
+
+        try:
+            return await _post(use_api_base=False)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                try:
+                    return await _post(use_api_base=True)
+                except Exception:
+                    pass
+            raise
 
     async def pronunciation_assessment(
         self,
@@ -105,15 +148,26 @@ class SpeechClient:
                 "Pronunciation-Assessment": pa_b64,
             }
         )
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                self._stt_url(language),
-                headers=headers,
-                content=wav_bytes,
-                timeout=60,
-            )
-            r.raise_for_status()
-            return r.json()
+        async def _post(use_api_base: bool) -> dict[str, Any]:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    self._stt_url(language, use_api_base=use_api_base),
+                    headers=headers,
+                    content=wav_bytes,
+                    timeout=60,
+                )
+                r.raise_for_status()
+                return r.json()
+
+        try:
+            return await _post(use_api_base=False)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                try:
+                    return await _post(use_api_base=True)
+                except Exception:
+                    pass
+            raise
 
     async def text_to_speech(
         self,
@@ -146,12 +200,26 @@ class SpeechClient:
         headers = self._tts_headers()
         headers["Content-Type"] = "application/ssml+xml"
         headers["X-Microsoft-OutputFormat"] = output_format
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                self._tts_url(), headers=headers, content=ssml.encode("utf-8"), timeout=60
-            )
-            r.raise_for_status()
-            return r.content
+        async def _post(use_api_base: bool) -> bytes:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    self._tts_url(use_api_base=use_api_base),
+                    headers=headers,
+                    content=ssml.encode("utf-8"),
+                    timeout=60,
+                )
+                r.raise_for_status()
+                return r.content
+
+        try:
+            return await _post(use_api_base=False)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                try:
+                    return await _post(use_api_base=True)
+                except Exception:
+                    pass
+            raise
 
 
 def _escape_xml(s: str) -> str:

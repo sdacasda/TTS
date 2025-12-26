@@ -11,8 +11,8 @@ import httpx
 
 class SpeechClient:
     def __init__(self, key: str, region: str):
-        self.key = key
-        self.region = region
+        self.key = key.strip()
+        self.region = region.strip()
 
     def _get_auth_headers(self) -> dict[str, str]:
         if len(self.key) == 32:
@@ -250,8 +250,8 @@ def build_ssml(
 
 
 def client_from_env() -> SpeechClient:
-    key = os.getenv("SPEECH_KEY")
-    region = os.getenv("SPEECH_REGION")
+    key = os.getenv("SPEECH_KEY", "").strip()
+    region = os.getenv("SPEECH_REGION", "").strip()
     if not key or not region:
         raise RuntimeError("Missing SPEECH_KEY or SPEECH_REGION")
     return SpeechClient(key=key, region=region)

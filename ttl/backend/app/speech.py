@@ -49,15 +49,11 @@ class SpeechClient:
             return data
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
-            try:
-                error_text = (
-                    e.response.text[:200].encode("ascii", "replace").decode("ascii")
-                )
-            except Exception:
-                error_text = "Error response contains non-ASCII characters"
+            # 避免编码问题，直接截断文本
+            error_text = (e.response.text or "")[:200].replace("\n", " ")
             raise RuntimeError(f"Azure API HTTP {status_code}: {error_text}")
         except httpx.RequestError as e:
-            error_msg = str(e).encode("ascii", "replace").decode("ascii")
+            error_msg = str(e)
             raise RuntimeError(f"Network error: {error_msg}")
 
     async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:

@@ -78,6 +78,15 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _safe_err(e: Exception) -> str:
+    try:
+        return str(e)
+    except UnicodeEncodeError:
+        return repr(e)
+    except Exception:
+        return "error string unavailable"
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "version": "2025-12-25-v2"}
@@ -177,7 +186,7 @@ async def tts_voices(locale: str | None = None, neural_only: bool = True) -> dic
         voices = await c.list_voices()
         logger.info(f"Successfully fetched {len(voices)} voices")
     except Exception as e:
-        error_msg = f"Failed to fetch voices: {type(e).__name__}: {str(e)}"
+        error_msg = f"Failed to fetch voices: {type(e).__name__}: {_safe_err(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=502, detail=error_msg)
 

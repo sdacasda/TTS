@@ -50,10 +50,16 @@ class SpeechClient:
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
             # 避免编码问题，直接截断文本
-            error_text = (e.response.text or "")[:200].replace("\n", " ")
+            try:
+                error_text = (e.response.text or "")[:200].replace("\n", " ")
+            except Exception:
+                error_text = "unable to read response text"
             raise RuntimeError(f"Azure API HTTP {status_code}: {error_text}")
         except httpx.RequestError as e:
-            error_msg = str(e)
+            try:
+                error_msg = str(e)
+            except Exception:
+                error_msg = "request error"
             raise RuntimeError(f"Network error: {error_msg}")
 
     async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:

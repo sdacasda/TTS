@@ -4,7 +4,8 @@ import base64
 import json
 import os
 import re
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 import httpx
 
@@ -13,27 +14,8 @@ class SpeechClient:
     def __init__(self, key: str, region: str):
         self.key = key.strip()
         self.region = region.strip()
-
-    def _get_auth_headers(self) -> dict[str, str]:
-        # 允许通过环境变量强制鉴权模式：subscription / bearer / both
-        mode = os.getenv("SPEECH_AUTH_MODE", "").strip().lower()
-        if mode == "subscription":
-            return {"Ocp-Apim-Subscription-Key": self.key}
-        if mode == "bearer":
-            return {"Authorization": f"Bearer {self.key}"}
-        if mode == "both":
-            return {
-                "Authorization": f"Bearer {self.key}",
-                "Ocp-Apim-Subscription-Key": self.key,
-            }
-
-        # 默认策略：32 位走订阅头；否则同时带上 Bearer 与订阅头，兼容 Foundry/长密钥
-        if len(self.key) == 32:
-            return {"Ocp-Apim-Subscription-Key": self.key}
-        return {
-            "Authorization": f"Bearer {self.key}",
-            "Ocp-Apim-Subscription-Key": self.key,
-        }
+        self._token: Optional[str] = None
+        self._token_exp: Optional[datetime] = None
 
     def _tts_base(self) -> str:
         # 允许通过环境变量覆盖基础域名（例如 Foundry 项目可能需要 api.cognitive.microsoft.com）
@@ -52,6 +34,41 @@ class SpeechClient:
         # Cognitive Services 通用域（部分订阅密钥/Foundry 项目可能要求）
         return f"https://{self.region}.api.cognitive.microsoft.com"
 
+    async def _fetch_token(self) -> str:
+        # 使用订阅密钥换取 bearer token
+        now = datetime.now(timezone.utc)
+        if self._token and self._token_exp and self._token_exp > now:
+            return self._token
+        url = f"{self._api_base()}/sts/v1.0/issueToken"
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.key,
+            "User-Agent": "speech-portal",
+        }
+        async with httpx.AsyncClient() as client:
+            r = await client.post(url, headers=headers, timeout=30)
+            r.raise_for_status()
+            token = r.text.strip()
+
+        # 解析 exp 以便缓存，失败则设置 8 分钟
+        exp_dt: Optional[datetime] = None
+        try:
+            parts = token.split(".")
+            if len(parts) >= 2:
+                payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+                payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode()))
+                exp_ts = int(payload.get("exp", 0))
+                if exp_ts:
+                    exp_dt = datetime.fromtimestamp(exp_ts, tz=timezone.utc)
+        except Exception:
+            exp_dt = None
+
+        if exp_dt is None:
+            exp_dt = now.replace(microsecond=0) + timedelta(minutes=8)
+
+        self._token = token
+        self._token_exp = exp_dt
+        return token
+
     def _stt_url(self, language: str, *, use_api_base: bool = False) -> str:
         base = self._api_base() if use_api_base else self._stt_base()
         return (
@@ -68,9 +85,21 @@ class SpeechClient:
         return f"{base}/cognitiveservices/voices/list"
 
     def _tts_headers(self) -> dict[str, str]:
-        headers = self._get_auth_headers()
+        headers = {}
         headers["User-Agent"] = "speech-portal"
         return headers
+
+    @staticmethod
+    def _fallback_voices() -> list[dict[str, Any]]:
+        # 最小可用的静态语音列表，避免上游失败时前端完全不可用
+        return [
+            {"ShortName": "zh-CN-XiaoxiaoNeural", "Locale": "zh-CN", "Gender": "Female"},
+            {"ShortName": "en-US-JennyNeural", "Locale": "en-US", "Gender": "Female"},
+            {"ShortName": "en-US-GuyNeural", "Locale": "en-US", "Gender": "Male"},
+            {"ShortName": "en-US-EmmaNeural", "Locale": "en-US", "Gender": "Female"},
+            {"ShortName": "en-US-AndrewNeural", "Locale": "en-US", "Gender": "Male"},
+            {"ShortName": "en-GB-SoniaNeural", "Locale": "en-GB", "Gender": "Female"},
+        ]
 
     async def list_voices(self) -> list[dict[str, Any]]:
         headers = self._tts_headers()
@@ -109,6 +138,14 @@ class SpeechClient:
             except Exception:
                 error_msg = "request error"
             raise RuntimeError(f"Network error: {error_msg}")
+        # 若上游返回空列表，提供静态兜底，保证前端可用
+        try:
+            voices = await _fetch(use_api_base=False)
+        except Exception:
+            voices = []
+        if not voices:
+            return self._fallback_voices()
+        return voices
 
     async def speech_to_text(self, wav_bytes: bytes, language: str) -> dict[str, Any]:
         headers = self._get_auth_headers()

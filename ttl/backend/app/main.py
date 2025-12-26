@@ -291,6 +291,7 @@ class OpenAITTSRequest(BaseModel):
     speed: Optional[float] = 1.0
     gain: Optional[float] = 0.0
     sample_rate: Optional[int] = None
+    style: Optional[str] = None
 
 
 @app.post("/v1/audio/speech", dependencies=[Depends(verify_api_key)])
@@ -358,9 +359,12 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
     
     mood = classify(request.input)
     azure_style = EMOTION_STYLE_MAP.get(mood, "chat")
-    logger.info(f"Emotion analysis: {mood} -> {azure_style}")
+    style_to_use = request.style or azure_style
+    logger.info(
+        f"Emotion analysis: {mood} -> {azure_style}; final_style={style_to_use}"
+    )
 
-    logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}")
+    logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}, style={style_to_use}")
     
     try:
         c = client_from_env()
@@ -369,7 +373,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
             voice=voice,
             output_format=output_format,
             lang=lang,
-            style=azure_style,
+            style=style_to_use,
             role=None,
             style_degree=None,
             rate=rate,
@@ -409,3 +413,8 @@ def favicon():
     if os.path.exists(favicon_path):
         return FileResponse(favicon_path)
     return Response(status_code=204)
+
+
+@app.get("/playground", response_class=HTMLResponse)
+def playground(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("openai_playground.html", {"request": request})

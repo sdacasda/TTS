@@ -177,8 +177,9 @@
       "bases:创建新数据库": false
     }
   },
-  "active": "2f50cb114311450c",
+  "active": "662d78a927febc3b",
   "lastOpenFiles": [
+    "未命名.canvas",
     "第三方项目/astrbot_plugin_tts_emotion_router/data/data_v3.db",
     "第三方项目/astrbot_plugin_tts_emotion_router/data/cmd_config.json",
     "第三方项目/astrbot_plugin_tts_emotion_router/data",
@@ -190,8 +191,6 @@
     "第三方项目/astrbot_plugin_tts_emotion_router/tts/provider_siliconflow.py",
     "第三方项目/astrbot_plugin_tts_emotion_router/tts",
     "第三方项目/astrbot_plugin_tts_emotion_router/emotion/infer.py",
-    "第三方项目/astrbot_plugin_tts_emotion_router/emotion/classifier.py",
-    "未命名.canvas",
     "README.md",
     "ttl/README.md"
   ]

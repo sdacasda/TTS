@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Optional
 import logging
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ from starlette.requests import Request
 from pydantic import BaseModel
 
 from .emotion import classify, EMOTION_STYLE_MAP
-from .speech import client_from_env
+from .speech import SpeechClient, client_from_env
 from .usage import get_usage_overview, get_usage_summary, init_db, month_key, record_usage
 
 load_dotenv()
@@ -76,6 +77,23 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+@lru_cache()
+def get_speech_client() -> SpeechClient:
+    return client_from_env()
+
+
+@app.on_event("startup")
+async def startup_event():
+    api_key = os.getenv("API_KEY")
+    if not api_key:
+        logger.warning("=" * 50)
+        logger.warning("SECURITY WARNING: API_KEY is not set! The TTS API is open.")
+        logger.warning("Set API_KEY in .env to secure your endpoints.")
+        logger.warning("=" * 50)
+    else:
+        logger.info("API_KEY is set; authentication enabled.")
 
 
 def _safe_err(e: Exception) -> str:
@@ -147,17 +165,20 @@ def update_app() -> dict:
             )
         
         logger.info("Code updated successfully, restarting application...")
-        
+
         def restart():
             time.sleep(2)
-            # In Docker, PID 1 is usually the entrypoint
-            os.system("kill -TERM 1")
-        
+            if os.path.exists("/.dockerenv"):
+                logger.info("Docker environment detected. Sending TERM to PID 1.")
+                os.system("kill -TERM 1")
+            else:
+                logger.warning("Not running in Docker. Please restart the service manually.")
+
         threading.Thread(target=restart, daemon=True).start()
-        
+
         return {
             "ok": True,
-            "message": "Update successful, service will restart in 2 seconds",
+            "message": "Update successful, service will restart in 2 seconds" if os.path.exists("/.dockerenv") else "Update successful, please restart the service manually",
             "output": result.stdout
         }
     except subprocess.TimeoutExpired:
@@ -181,7 +202,7 @@ async def usage_overview() -> dict:
 @app.get("/api/tts/voices", dependencies=[Depends(verify_api_key)])
 async def tts_voices(locale: str | None = None, neural_only: bool = True) -> dict:
     try:
-        c = client_from_env()
+        c = get_speech_client()
         logger.info(f"Fetching voices from Azure, region: {c.region}")
         voices = await c.list_voices()
         logger.info(f"Successfully fetched {len(voices)} voices")
@@ -213,7 +234,7 @@ async def stt_recognize(
         raise HTTPException(status_code=400, detail="Only WAV is supported in this demo")
     wav_bytes = await audio.read()
     try:
-        c = client_from_env()
+        c = get_speech_client()
         result = await c.speech_to_text(wav_bytes=wav_bytes, language=language)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
@@ -235,7 +256,7 @@ async def pronunciation_assess(
         raise HTTPException(status_code=400, detail="Only WAV is supported in this demo")
     wav_bytes = await audio.read()
     try:
-        c = client_from_env()
+        c = get_speech_client()
         result = await c.pronunciation_assessment(
             wav_bytes=wav_bytes,
             language=language,
@@ -268,7 +289,7 @@ async def tts_synthesize(
         raise HTTPException(status_code=400, detail="Empty text")
 
     try:
-        c = client_from_env()
+        c = get_speech_client()
         audio_bytes = await c.text_to_speech(
             text=text,
             voice=voice,
@@ -376,7 +397,7 @@ async def openai_tts_speech(request: OpenAITTSRequest) -> Response:
     logger.info(f"OpenAI TTS: input_voice={request.voice}, mapped_voice={voice}, lang={lang}, speed={request.speed}, rate={rate}, format={request.response_format}, style={style_to_use}")
     
     try:
-        c = client_from_env()
+        c = get_speech_client()
         audio_bytes = await c.text_to_speech(
             text=request.input,
             voice=voice,
